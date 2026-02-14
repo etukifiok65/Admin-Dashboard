@@ -2,6 +2,9 @@ import React, { useEffect, useState } from 'react';
 import type { AdminUserSettings, PlatformConfiguration, ServiceTypeConfig, AppointmentStatusConfig } from '@app-types/index';
 import { adminDashboardService } from '@services/adminDashboard.service';
 import { DashboardLayout } from '@components/DashboardLayout';
+import AddAdminModal from '@components/AddAdminModal';
+import EditAdminModal from '@components/EditAdminModal';
+import EditServiceModal from '@components/EditServiceModal';
 
 export const SettingsPage: React.FC = () => {
   const [adminUsers, setAdminUsers] = useState<AdminUserSettings[]>([]);
@@ -13,6 +16,13 @@ export const SettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'admin' | 'platform' | 'services' | 'statuses'>('admin');
   const [editingConfig, setEditingConfig] = useState(false);
   const [configValues, setConfigValues] = useState<PlatformConfiguration | null>(null);
+
+  // Modal states
+  const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
+  const [isEditAdminModalOpen, setIsEditAdminModalOpen] = useState(false);
+  const [isEditServiceModalOpen, setIsEditServiceModalOpen] = useState(false);
+  const [selectedAdmin, setSelectedAdmin] = useState<AdminUserSettings | null>(null);
+  const [selectedService, setSelectedService] = useState<ServiceTypeConfig | null>(null);
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -53,6 +63,19 @@ export const SettingsPage: React.FC = () => {
       setEditingConfig(false);
     } catch (err) {
       setError('Failed to save configuration');
+    }
+  };
+
+  const refreshData = async () => {
+    try {
+      const [admins, types] = await Promise.all([
+        adminDashboardService.getAdminUsers(),
+        adminDashboardService.getServiceTypes(),
+      ]);
+      if (admins) setAdminUsers(admins);
+      if (types) setServiceTypes(types);
+    } catch (err) {
+      setError('Failed to refresh data');
     }
   };
 
@@ -108,7 +131,10 @@ export const SettingsPage: React.FC = () => {
           <div className="rounded-lg border border-slate-200 bg-white/90 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-slate-900">Admin Users</h2>
-              <button className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100 transition">
+              <button 
+                onClick={() => setIsAddAdminModalOpen(true)}
+                className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100 transition"
+              >
                 + Add Admin
               </button>
             </div>
@@ -146,7 +172,15 @@ export const SettingsPage: React.FC = () => {
                         {new Date(admin.created_at).toLocaleDateString()}
                       </td>
                       <td className="px-6 py-4">
-                        <button className="text-sm text-brand-600 hover:text-brand-700 font-semibold">Edit</button>
+                        <button 
+                          onClick={() => {
+                            setSelectedAdmin(admin);
+                            setIsEditAdminModalOpen(true);
+                          }}
+                          className="text-sm text-brand-600 hover:text-brand-700 font-semibold"
+                        >
+                          Edit
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -161,9 +195,6 @@ export const SettingsPage: React.FC = () => {
           <div className="rounded-2xl border border-slate-200 bg-white/90 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-lg font-semibold text-slate-900">Service Types</h2>
-              <button className="rounded-lg border border-brand-200 bg-brand-50 px-4 py-2 text-sm font-semibold text-brand-700 hover:bg-brand-100 transition">
-                + Add Service Type
-              </button>
             </div>
 
             <div className="grid gap-4 md:grid-cols-2">
@@ -172,7 +203,10 @@ export const SettingsPage: React.FC = () => {
                   <div className="flex items-start justify-between mb-2">
                     <div>
                       <h3 className="font-semibold text-slate-900">{service.name}</h3>
-                      <p className="text-sm text-slate-500">{service.description}</p>
+                      <p className="text-sm text-slate-500 mb-1">{service.description}</p>
+                      <p className="text-xs text-slate-600">
+                        Price Range: ₦{service.minRate.toLocaleString()} - ₦{service.maxRate.toLocaleString()} • {service.duration}
+                      </p>
                     </div>
                     <span className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
                       service.isActive
@@ -183,8 +217,15 @@ export const SettingsPage: React.FC = () => {
                     </span>
                   </div>
                   <div className="flex gap-2">
-                    <button className="text-sm text-brand-600 hover:text-brand-700 font-semibold">Edit</button>
-                    <button className="text-sm text-red-600 hover:text-red-700 font-semibold">Delete</button>
+                    <button 
+                      onClick={() => {
+                        setSelectedService(service);
+                        setIsEditServiceModalOpen(true);
+                      }}
+                      className="text-sm text-brand-600 hover:text-brand-700 font-semibold"
+                    >
+                      Edit
+                    </button>
                   </div>
                 </div>
               ))}
@@ -192,6 +233,33 @@ export const SettingsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* Modals */}
+      <AddAdminModal
+        isOpen={isAddAdminModalOpen}
+        onClose={() => setIsAddAdminModalOpen(false)}
+        onSuccess={refreshData}
+      />
+
+      <EditAdminModal
+        isOpen={isEditAdminModalOpen}
+        onClose={() => {
+          setIsEditAdminModalOpen(false);
+          setSelectedAdmin(null);
+        }}
+        onSuccess={refreshData}
+        admin={selectedAdmin}
+      />
+
+      <EditServiceModal
+        isOpen={isEditServiceModalOpen}
+        onClose={() => {
+          setIsEditServiceModalOpen(false);
+          setSelectedService(null);
+        }}
+        onSuccess={refreshData}
+        service={selectedService}
+      />
     </DashboardLayout>
   );
 };
