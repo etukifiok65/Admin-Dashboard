@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { FinancialMetrics, ProviderPayout, TransactionRecord, PaginationOptions } from '@app-types/index';
 import { adminDashboardService } from '@services/adminDashboard.service';
 import { DashboardLayout } from '@components/DashboardLayout';
+import ConfirmModal from '@components/ConfirmModal';
 import { format } from 'date-fns';
 
 const ITEMS_PER_PAGE = 10;
@@ -39,6 +40,8 @@ export const FinancialPage: React.FC = () => {
   const [transactionStatus, setTransactionStatus] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
   const [payoutStatus, setPayoutStatus] = useState<'all' | 'pending' | 'processing' | 'completed' | 'failed'>('all');
   const [isUpdatingPayout, setIsUpdatingPayout] = useState(false);
+  const [isPayoutConfirmOpen, setIsPayoutConfirmOpen] = useState(false);
+  const [pendingPayoutUpdate, setPendingPayoutUpdate] = useState<{id: string, status: 'pending' | 'processing' | 'completed' | 'failed'} | null>(null);
 
   useEffect(() => {
     const fetchMetrics = async () => {
@@ -108,24 +111,37 @@ export const FinancialPage: React.FC = () => {
   }, [activeTab, page, transactionFilter, transactionStatus, payoutStatus]);
 
   const handleUpdatePayoutStatus = async (payoutId: string, newStatus: 'pending' | 'processing' | 'completed' | 'failed') => {
-    const confirmed = confirm(`Are you sure you want to mark this payout as ${newStatus}?`);
-    if (!confirmed) return;
+    // Open confirmation modal
+    setPendingPayoutUpdate({ id: payoutId, status: newStatus });
+    setIsPayoutConfirmOpen(true);
+  };
+
+  const handleConfirmPayoutUpdate = async () => {
+    if (!pendingPayoutUpdate) return;
 
     setIsUpdatingPayout(true);
 
     try {
-      const updated = await adminDashboardService.updatePayoutStatus(payoutId, newStatus);
+      const updated = await adminDashboardService.updatePayoutStatus(pendingPayoutUpdate.id, pendingPayoutUpdate.status);
       if (updated) {
         setPayouts(prev =>
-          prev.map(p => (p.id === payoutId ? { ...p, status: updated.status, completed_at: updated.completed_at } : p))
+          prev.map(p => (p.id === pendingPayoutUpdate.id ? { ...p, status: updated.status, completed_at: updated.completed_at } : p))
         );
       }
+
+      setIsPayoutConfirmOpen(false);
+      setPendingPayoutUpdate(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update payout status';
       setError(message);
     } finally {
       setIsUpdatingPayout(false);
     }
+  };
+
+  const handleCancelPayoutUpdate = () => {
+    setIsPayoutConfirmOpen(false);
+    setPendingPayoutUpdate(null);
   };
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
@@ -471,6 +487,16 @@ export const FinancialPage: React.FC = () => {
           )}
         </div>
       </div>
-    </DashboardLayout>
+      {/* Payout Status Update Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isPayoutConfirmOpen}
+        title="Update Payout Status"
+        message={`Are you sure you want to mark this payout as ${pendingPayoutUpdate?.status}?`}
+        confirmText="Update Status"
+        cancelText="Cancel"
+        onConfirm={handleConfirmPayoutUpdate}
+        onCancel={handleCancelPayoutUpdate}
+        isLoading={isUpdatingPayout}
+      />    </DashboardLayout>
   );
 };
