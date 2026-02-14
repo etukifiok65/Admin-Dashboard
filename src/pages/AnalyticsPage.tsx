@@ -17,9 +17,7 @@ export const AnalyticsPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        console.log('Fetching analytics metrics...');
         const data = await adminDashboardService.getAnalyticsMetrics();
-        console.log('Analytics data received:', data);
         if (!data) {
           setError('Failed to load analytics - no data returned');
         } else {

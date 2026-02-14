@@ -48,9 +48,7 @@ export const FinancialPage: React.FC = () => {
       setMetricsLoading(true);
       setError(null);
       try {
-        console.log('Fetching financial metrics...');
         const data = await adminDashboardService.getFinancialMetrics();
-        console.log('Metrics data received:', data);
         if (!data) {
           setError('Failed to fetch metrics - check console for details');
         } else {

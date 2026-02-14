@@ -40,8 +40,6 @@ class AdminDashboardService {
         .from('providers')
         .select('*', { count: 'exact', head: true });
 
-      console.log('Patient count:', totalPatients, 'Provider count:', totalProviders);
-
       // Get active patients (those with appointments in the last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
@@ -55,15 +53,11 @@ class AdminDashboardService {
         activePatientAppointments?.map((a) => a.patient_id) || []
       );
 
-      console.log('Active patients (last 30 days):', activePatientIds.size);
-
       // Get verified providers
       const { count: verifiedProviders } = await supabase
         .from('providers')
         .select('*', { count: 'exact', head: true })
         .eq('is_verified', true);
-
-      console.log('Verified providers:', verifiedProviders);
 
       // Get pending providers
       const { count: pendingProviders } = await supabase
@@ -71,15 +65,11 @@ class AdminDashboardService {
         .select('*', { count: 'exact', head: true })
         .in('account_status', ['pending', 'document_pending', 'pending_approval']);
 
-      console.log('Pending providers:', pendingProviders);
-
       // Get pending patients
       const { count: pendingPatients } = await supabase
         .from('patients')
         .select('*', { count: 'exact', head: true })
         .eq('verification_status', 'pending');
-
-      console.log('Pending patients:', pendingPatients);
 
       // Get today's appointments (scheduled for today's date)
       const today = new Date();
@@ -89,8 +79,6 @@ class AdminDashboardService {
         .from('appointments')
         .select('*', { count: 'exact', head: true })
         .eq('scheduled_date', todayDateStr);
-
-      console.log('Today\'s appointments (scheduled for', todayDateStr, '):', todayAppointments);
 
       // Get today's revenue (platform's 20% commission from appointments completed today)
       today.setHours(0, 0, 0, 0);
@@ -104,8 +92,6 @@ class AdminDashboardService {
         (sum, a) => sum + (a.total_cost ? parseFloat(a.total_cost.toString()) * 0.2 : 0),
         0
       );
-
-      console.log('Today\'s revenue (20% platform commission):', todayRevenue, 'from', todayCompletedAppointments?.length, 'completed appointments');
 
       // Get this month's revenue (platform's 20% commission from completed appointments this month)
       const monthStart = new Date();
@@ -123,8 +109,6 @@ class AdminDashboardService {
         0
       );
 
-      console.log('This month\'s revenue (20% platform commission):', thisMonthRevenue, 'from', monthCompletedAppointments?.length, 'completed appointments');
-
       const metrics = {
         totalUsers: (totalPatients || 0) + (totalProviders || 0),
         activePatients: activePatientIds.size,
@@ -135,8 +119,6 @@ class AdminDashboardService {
         todayRevenue,
         thisMonthRevenue,
       };
-
-      console.log('Final dashboard metrics:', metrics);
 
       return metrics;
     } catch (error) {
@@ -880,13 +862,7 @@ class AdminDashboardService {
       const totalTopUpRevenue = (topups || [])
         .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-      console.log('Successfully calculated all metrics:', {
-        patientWalletBalance,
-        providerWalletBalance,
-        platformRevenue,
-        pendingPayouts,
-        totalTopUpRevenue,
-      });
+      // Financial metrics calculated successfully
 
       return {
         patientWalletBalance,
@@ -1059,12 +1035,8 @@ class AdminDashboardService {
 
       if (error) throw error;
 
-      console.log('All appointments:', appointments?.length, appointments);
-
       const filtered = (appointments || [])
         .filter(apt => apt.status === 'Completed');
-
-      console.log('Completed appointments:', filtered.length, filtered);
 
       const serviceTypeCounts = filtered
         .reduce((acc: Record<string, number>, apt) => {
@@ -1072,10 +1044,7 @@ class AdminDashboardService {
           return acc;
         }, {});
 
-      console.log('Service type counts:', serviceTypeCounts);
-
       const total = Object.values(serviceTypeCounts).reduce((sum, count) => sum + count, 0);
-      console.log('Total:', total);
 
       // Calculate percentages ensuring they add up to 100
       const entries = Object.entries(serviceTypeCounts);
@@ -1092,7 +1061,6 @@ class AdminDashboardService {
         };
       });
 
-      console.log('Final result:', result);
       return result;
     } catch (error) {
       console.error('Error fetching appointments by service:', error);
@@ -1534,10 +1502,9 @@ class AdminDashboardService {
   /**
    * Update platform configuration
    */
-  async updatePlatformConfig(config: Partial<PlatformConfiguration>): Promise<PlatformConfiguration | null> {
+  async updatePlatformConfig(_config: Partial<PlatformConfiguration>): Promise<PlatformConfiguration | null> {
     try {
       // In a real app, this would update the platform_settings table
-      console.log('Updating platform config:', config);
       return await this.getPlatformConfig();
     } catch (error) {
       console.error('Error updating platform config:', error);

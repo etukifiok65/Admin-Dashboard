@@ -56,19 +56,11 @@ export const VerificationsPage: React.FC = () => {
         };
 
         if (activeQueue === 'providers') {
-          console.log('Fetching providers with params:', {
-            search,
-            status: 'all',
-            sort: sortOrder,
-          });
-          
           const response = await adminDashboardService.getPendingProviders(options, {
             search,
             status: 'all',
             sort: sortOrder,
           });
-
-          console.log('Provider response:', response);
 
           if (response) {
             setProviders(response.data);
@@ -77,8 +69,6 @@ export const VerificationsPage: React.FC = () => {
             if (!selectedProviderId && response.data.length > 0) {
               setSelectedProviderId(response.data[0].id);
             }
-          } else {
-            console.warn('Provider response was null');
           }
         } else {
           const response = await adminDashboardService.getPatients(options, {

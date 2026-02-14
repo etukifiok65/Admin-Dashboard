@@ -48,14 +48,10 @@ export const DashboardPage: React.FC = () => {
       setError(null);
 
       try {
-        console.log('Loading dashboard metrics...');
         const data = await adminDashboardService.getDashboardMetrics();
-        console.log('Dashboard metrics received:', data);
         if (data) {
           setMetrics(data);
-          console.log('Metrics state updated successfully');
         } else {
-          console.error('getDashboardMetrics returned null');
           setError('Failed to load dashboard metrics');
         }
       } catch (err) {
