@@ -180,7 +180,7 @@ export const LoginPage: React.FC = () => {
             </form>
 
             <p className="text-center text-xs text-gray-500 mt-8">
-              © {new Date().getFullYear()} HomiCareplus Technologies. All rights reserved.
+              © {new Date().getFullYear()} HomiCareplus. All rights reserved.
             </p>
           </div>
         </div>
