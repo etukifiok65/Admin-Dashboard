@@ -474,34 +474,30 @@ class AdminDashboardService {
     status: 'Requested' | 'Scheduled' | 'Completed' | 'Cancelled',
     cancellationReason?: string
   ): Promise<Appointment | null> {
-    try {
-      const updates: any = { status };
+    const updates: any = { status };
 
-      if (status === 'Completed') {
-        updates.completed_at = new Date().toISOString();
-      } else if (status === 'Cancelled') {
-        updates.cancelled_at = new Date().toISOString();
-        if (cancellationReason) {
-          updates.cancellation_reason = cancellationReason;
-        }
+    if (status === 'Completed') {
+      updates.completed_at = new Date().toISOString();
+    } else if (status === 'Cancelled') {
+      updates.cancelled_at = new Date().toISOString();
+      if (cancellationReason) {
+        updates.cancellation_reason = cancellationReason;
       }
-
-      const { data, error } = await supabase
-        .from('appointments')
-        .update(updates)
-        .eq('id', id)
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      return data as Appointment;
-    } catch (error) {
-      console.error('Error updating appointment status:', error);
-      return null;
     }
+
+    const { data, error } = await supabase
+      .from('appointments')
+      .update(updates)
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error updating appointment status:', error);
+      throw new Error(`Failed to update appointment status: ${error.message}`);
+    }
+
+    return data as Appointment;
   }
 
   /**
@@ -1127,12 +1123,14 @@ class AdminDashboardService {
       const locationStats = (appointments || [])
         .filter(apt => 
           apt.status === 'Completed' && 
-          apt.patients?.patient_addresses && 
-          apt.patients.patient_addresses.length > 0
+          Array.isArray(apt.patients) &&
+          apt.patients.length > 0 &&
+          Array.isArray(apt.patients[0]?.patient_addresses) &&
+          apt.patients[0].patient_addresses.length > 0
         )
         .reduce((acc: Record<string, { count: number; revenue: number }>, apt) => {
           // Get the first address (most relevant)
-          const state = apt.patients?.patient_addresses?.[0]?.state;
+          const state = Array.isArray(apt.patients) && apt.patients[0]?.patient_addresses?.[0]?.state;
           if (!state) return acc;
 
           if (!acc[state]) {
@@ -1180,7 +1178,7 @@ class AdminDashboardService {
         .reduce((acc: Record<string, { name: string; earnings: number; count: number }>, apt) => {
           if (!acc[apt.provider_id]) {
             acc[apt.provider_id] = {
-              name: apt.providers?.name || 'Unknown',
+              name: (Array.isArray(apt.providers) && apt.providers[0]?.name) || 'Unknown',
               earnings: 0,
               count: 0,
             };
@@ -1227,7 +1225,7 @@ class AdminDashboardService {
         .reduce((acc: Record<string, { name: string; totalRating: number; count: number }>, review) => {
           if (!acc[review.provider_id]) {
             acc[review.provider_id] = {
-              name: review.providers?.name || 'Unknown',
+              name: (Array.isArray(review.providers) && review.providers[0]?.name) || 'Unknown',
               totalRating: 0,
               count: 0,
             };

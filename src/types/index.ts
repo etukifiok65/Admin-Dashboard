@@ -352,4 +352,4 @@ export interface AppointmentStatusConfig {
   createdAt: string;
   updatedAt: string;
 }
-}
+

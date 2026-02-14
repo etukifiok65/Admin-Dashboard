@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { AdminUserSettings, PlatformConfiguration, ServiceTypeConfig, AppointmentStatusConfig } from '@app-types/index';
+import type { AdminUserSettings, ServiceTypeConfig } from '@app-types/index';
 import { adminDashboardService } from '@services/adminDashboard.service';
 import { DashboardLayout } from '@components/DashboardLayout';
 import AddAdminModal from '@components/AddAdminModal';
@@ -8,14 +8,10 @@ import EditServiceModal from '@components/EditServiceModal';
 
 export const SettingsPage: React.FC = () => {
   const [adminUsers, setAdminUsers] = useState<AdminUserSettings[]>([]);
-  const [platformConfig, setPlatformConfig] = useState<PlatformConfiguration | null>(null);
   const [serviceTypes, setServiceTypes] = useState<ServiceTypeConfig[]>([]);
-  const [appointmentStatuses, setAppointmentStatuses] = useState<AppointmentStatusConfig[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'admin' | 'platform' | 'services' | 'statuses'>('admin');
-  const [editingConfig, setEditingConfig] = useState(false);
-  const [configValues, setConfigValues] = useState<PlatformConfiguration | null>(null);
 
   // Modal states
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
@@ -29,20 +25,13 @@ export const SettingsPage: React.FC = () => {
       setIsLoading(true);
       setError(null);
       try {
-        const [admins, config, types, statuses] = await Promise.all([
+        const [admins, types] = await Promise.all([
           adminDashboardService.getAdminUsers(),
-          adminDashboardService.getPlatformConfig(),
           adminDashboardService.getServiceTypes(),
-          adminDashboardService.getAppointmentStatuses(),
         ]);
 
         if (admins) setAdminUsers(admins);
-        if (config) {
-          setPlatformConfig(config);
-          setConfigValues(config);
-        }
         if (types) setServiceTypes(types);
-        if (statuses) setAppointmentStatuses(statuses);
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load settings';
         console.error('Settings error:', message, err);
@@ -54,17 +43,6 @@ export const SettingsPage: React.FC = () => {
 
     fetchSettings();
   }, []);
-
-  const handleSaveConfig = async () => {
-    if (!configValues) return;
-    try {
-      await adminDashboardService.updatePlatformConfig(configValues);
-      setPlatformConfig(configValues);
-      setEditingConfig(false);
-    } catch (err) {
-      setError('Failed to save configuration');
-    }
-  };
 
   const refreshData = async () => {
     try {
@@ -263,4 +241,3 @@ export const SettingsPage: React.FC = () => {
     </DashboardLayout>
   );
 };
- 

@@ -117,10 +117,14 @@ export const AppointmentsPage: React.FC = () => {
     setIsUpdatingStatus(true);
     setActionError(null);
 
+    // Store original status for rollback in case of error
+    const originalApt = appointments.find(apt => apt.id === selectedAppointmentId);
+    const originalStatus = originalApt?.status;
+
     try {
       await adminDashboardService.updateAppointmentStatus(selectedAppointmentId, pendingStatus);
       
-      // Refresh data
+      // Only update UI on success
       setAppointments(prev =>
         prev.map(apt =>
           apt.id === selectedAppointmentId ? { ...apt, status: pendingStatus } : apt
@@ -134,6 +138,18 @@ export const AppointmentsPage: React.FC = () => {
       setIsConfirmOpen(false);
       setPendingStatus(null);
     } catch (err) {
+      // Revert UI changes on error
+      if (originalStatus && selectedAppointmentId) {
+        setAppointments(prev =>
+          prev.map(apt =>
+            apt.id === selectedAppointmentId ? { ...apt, status: originalStatus } : apt
+          )
+        );
+        if (selectedAppointment) {
+          setSelectedAppointment({ ...selectedAppointment, status: originalStatus });
+        }
+      }
+
       const message = err instanceof Error ? err.message : 'Failed to update status';
       setActionError(message);
     } finally {

@@ -2,17 +2,6 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuth } from '@hooks/useAdminAuth';
 
-const getInitials = (name?: string) => {
-  if (!name) {
-    return 'AD';
-  }
-
-  const parts = name.trim().split(' ');
-  const first = parts[0]?.[0] || 'A';
-  const second = parts[1]?.[0] || 'D';
-  return `${first}${second}`.toUpperCase();
-};
-
 export const Header: React.FC = () => {
   const navigate = useNavigate();
   const { user, logout } = useAdminAuth();
