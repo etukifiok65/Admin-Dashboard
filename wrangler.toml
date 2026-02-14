@@ -1,0 +1,7 @@
+name = "admin-dashboard"
+compatibility_date = "2024-01-01"
+
+[env.production.vars]
+VITE_SUPABASE_URL = "https://spjqtdxnspndnnluayxp.supabase.co"
+VITE_APP_NAME = "HomiCareplus Admin"
+VITE_APP_ENVIRONMENT = "production"
