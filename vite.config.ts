@@ -3,6 +3,9 @@ import react from '@vitejs/plugin-react'
 import path from 'path'
 
 export default defineConfig({
+  // ADD THIS LINE BELOW
+  base: '/admin-dashboard/', 
+  
   plugins: [react()],
   resolve: {
     alias: {

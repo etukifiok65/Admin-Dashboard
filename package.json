@@ -1,7 +1,7 @@
 {
-  "name": "homicare-admin-dashboard",
+  "name": "homicareplus-admin-dashboard",
   "version": "1.0.0",
-  "description": "HomiCare Plus - Admin Dashboard Web Application",
+  "description": "HomiCareplus - Admin Dashboard Web Application",
   "type": "module",
   "scripts": {
     "dev": "vite",
