@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { Patient, PatientDetails, PaginationOptions } from '@app-types/index';
 import { adminDashboardService } from '@services/adminDashboard.service';
 import { DashboardLayout } from '@components/DashboardLayout';
+import ConfirmModal from '@components/ConfirmModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -22,6 +23,10 @@ export const UsersPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isSuspendConfirmOpen, setIsSuspendConfirmOpen] = useState(false);
+  const [pendingSuspendPatientId, setPendingSuspendPatientId] = useState<string | null>(null);
+  const [isReactivateConfirmOpen, setIsReactivateConfirmOpen] = useState(false);
+  const [pendingReactivatePatientId, setPendingReactivatePatientId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchPatients = async () => {
@@ -150,31 +155,39 @@ export const UsersPage: React.FC = () => {
   };
 
   const handleSuspendPatient = async (patientId: string) => {
-    const confirmed = confirm('Are you sure you want to suspend this patient account? They will not be able to book or access appointments.');
-    if (!confirmed) return;
+    // Open confirmation modal
+    setPendingSuspendPatientId(patientId);
+    setIsSuspendConfirmOpen(true);
+  };
+
+  const handleConfirmSuspend = async () => {
+    if (!pendingSuspendPatientId) return;
 
     setIsUpdatingStatus(true);
     setActionError(null);
     try {
-      const updated = await adminDashboardService.suspendPatientAccount(patientId);
+      const updated = await adminDashboardService.suspendPatientAccount(pendingSuspendPatientId);
       if (!updated) {
         throw new Error('Unable to suspend patient account');
       }
 
       setPatients((prev) =>
         prev.map((patient) =>
-          patient.id === patientId
+          patient.id === pendingSuspendPatientId
             ? { ...patient, is_active: updated.is_active }
             : patient
         )
       );
 
-      if (selectedPatient && selectedPatient.id === patientId) {
+      if (selectedPatient && selectedPatient.id === pendingSuspendPatientId) {
         setSelectedPatient({
           ...selectedPatient,
           is_active: updated.is_active,
         });
       }
+
+      setIsSuspendConfirmOpen(false);
+      setPendingSuspendPatientId(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to suspend account';
       setActionError(message);
@@ -183,38 +196,56 @@ export const UsersPage: React.FC = () => {
     }
   };
 
+  const handleCancelSuspend = () => {
+    setIsSuspendConfirmOpen(false);
+    setPendingSuspendPatientId(null);
+  };
+
   const handleReactivatePatient = async (patientId: string) => {
-    const confirmed = confirm('Are you sure you want to reactivate this patient account?');
-    if (!confirmed) return;
+    // Open confirmation modal
+    setPendingReactivatePatientId(patientId);
+    setIsReactivateConfirmOpen(true);
+  };
+
+  const handleConfirmReactivate = async () => {
+    if (!pendingReactivatePatientId) return;
 
     setIsUpdatingStatus(true);
     setActionError(null);
     try {
-      const updated = await adminDashboardService.reactivatePatientAccount(patientId);
+      const updated = await adminDashboardService.reactivatePatientAccount(pendingReactivatePatientId);
       if (!updated) {
         throw new Error('Unable to reactivate patient account');
       }
 
       setPatients((prev) =>
         prev.map((patient) =>
-          patient.id === patientId
+          patient.id === pendingReactivatePatientId
             ? { ...patient, is_active: updated.is_active }
             : patient
         )
       );
 
-      if (selectedPatient && selectedPatient.id === patientId) {
+      if (selectedPatient && selectedPatient.id === pendingReactivatePatientId) {
         setSelectedPatient({
           ...selectedPatient,
           is_active: updated.is_active,
         });
       }
+
+      setIsReactivateConfirmOpen(false);
+      setPendingReactivatePatientId(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to reactivate account';
       setActionError(message);
     } finally {
       setIsUpdatingStatus(false);
     }
+  };
+
+  const handleCancelReactivate = () => {
+    setIsReactivateConfirmOpen(false);
+    setPendingReactivatePatientId(null);
   };
 
   return (
@@ -634,6 +665,30 @@ export const UsersPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Suspend Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isSuspendConfirmOpen}
+        title="Suspend Patient Account"
+        message="Are you sure you want to suspend this patient account? They will not be able to book or access appointments."
+        confirmText="Suspend Account"
+        cancelText="Cancel"
+        onConfirm={handleConfirmSuspend}
+        onCancel={handleCancelSuspend}
+        isLoading={isUpdatingStatus}
+      />
+
+      {/* Reactivate Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isReactivateConfirmOpen}
+        title="Reactivate Patient Account"
+        message="Are you sure you want to reactivate this patient account? They will regain access to all features."
+        confirmText="Reactivate Account"
+        cancelText="Cancel"
+        onConfirm={handleConfirmReactivate}
+        onCancel={handleCancelReactivate}
+        isLoading={isUpdatingStatus}
+      />
     </DashboardLayout>
   );
 };
