@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import type { PaginationOptions, Provider, ProviderDetails } from '@app-types/index';
 import { adminDashboardService } from '@services/adminDashboard.service';
 import { DashboardLayout } from '@components/DashboardLayout';
+import ConfirmModal from '@components/ConfirmModal';
 
 const ITEMS_PER_PAGE = 10;
 
@@ -36,6 +37,10 @@ export const ProvidersPage: React.FC = () => {
   const [total, setTotal] = useState(0);
   const [isExporting, setIsExporting] = useState(false);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isSuspendConfirmOpen, setIsSuspendConfirmOpen] = useState(false);
+  const [pendingSuspendProviderId, setPendingSuspendProviderId] = useState<string | null>(null);
+  const [isReactivateConfirmOpen, setIsReactivateConfirmOpen] = useState(false);
+  const [pendingReactivateProviderId, setPendingReactivateProviderId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchProviders = async () => {
@@ -188,31 +193,39 @@ export const ProvidersPage: React.FC = () => {
   };
 
   const handleSuspendProvider = async (providerId: string) => {
-    const confirmed = confirm('Are you sure you want to suspend this provider account? They will not be able to accept appointments.');
-    if (!confirmed) return;
+    // Open confirmation modal
+    setPendingSuspendProviderId(providerId);
+    setIsSuspendConfirmOpen(true);
+  };
+
+  const handleConfirmSuspend = async () => {
+    if (!pendingSuspendProviderId) return;
 
     setIsUpdatingStatus(true);
     setActionError(null);
     try {
-      const updated = await adminDashboardService.suspendProviderAccount(providerId);
+      const updated = await adminDashboardService.suspendProviderAccount(pendingSuspendProviderId);
       if (!updated) {
         throw new Error('Unable to suspend provider account');
       }
 
       setProviders((prev) =>
         prev.map((provider) =>
-          provider.id === providerId
+          provider.id === pendingSuspendProviderId
             ? { ...provider, is_active: updated.is_active }
             : provider
         )
       );
 
-      if (selectedProvider && selectedProvider.id === providerId) {
+      if (selectedProvider && selectedProvider.id === pendingSuspendProviderId) {
         setSelectedProvider({
           ...selectedProvider,
           is_active: updated.is_active,
         });
       }
+
+      setIsSuspendConfirmOpen(false);
+      setPendingSuspendProviderId(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to suspend account';
       setActionError(message);
@@ -221,38 +234,56 @@ export const ProvidersPage: React.FC = () => {
     }
   };
 
+  const handleCancelSuspend = () => {
+    setIsSuspendConfirmOpen(false);
+    setPendingSuspendProviderId(null);
+  };
+
   const handleReactivateProvider = async (providerId: string) => {
-    const confirmed = confirm('Are you sure you want to reactivate this provider account?');
-    if (!confirmed) return;
+    // Open confirmation modal
+    setPendingReactivateProviderId(providerId);
+    setIsReactivateConfirmOpen(true);
+  };
+
+  const handleConfirmReactivate = async () => {
+    if (!pendingReactivateProviderId) return;
 
     setIsUpdatingStatus(true);
     setActionError(null);
     try {
-      const updated = await adminDashboardService.reactivateProviderAccount(providerId);
+      const updated = await adminDashboardService.reactivateProviderAccount(pendingReactivateProviderId);
       if (!updated) {
         throw new Error('Unable to reactivate provider account');
       }
 
       setProviders((prev) =>
         prev.map((provider) =>
-          provider.id === providerId
+          provider.id === pendingReactivateProviderId
             ? { ...provider, is_active: updated.is_active }
             : provider
         )
       );
 
-      if (selectedProvider && selectedProvider.id === providerId) {
+      if (selectedProvider && selectedProvider.id === pendingReactivateProviderId) {
         setSelectedProvider({
           ...selectedProvider,
           is_active: updated.is_active,
         });
       }
+
+      setIsReactivateConfirmOpen(false);
+      setPendingReactivateProviderId(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to reactivate account';
       setActionError(message);
     } finally {
       setIsUpdatingStatus(false);
     }
+  };
+
+  const handleCancelReactivate = () => {
+    setIsReactivateConfirmOpen(false);
+    setPendingReactivateProviderId(null);
   };
 
   return (
@@ -634,6 +665,30 @@ export const ProvidersPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Suspend Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isSuspendConfirmOpen}
+        title="Suspend Provider Account"
+        message="Are you sure you want to suspend this provider account? They will not be able to accept appointments."
+        confirmText="Suspend Account"
+        cancelText="Cancel"
+        onConfirm={handleConfirmSuspend}
+        onCancel={handleCancelSuspend}
+        isLoading={isUpdatingStatus}
+      />
+
+      {/* Reactivate Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isReactivateConfirmOpen}
+        title="Reactivate Provider Account"
+        message="Are you sure you want to reactivate this provider account? They will regain access to all features."
+        confirmText="Reactivate Account"
+        cancelText="Cancel"
+        onConfirm={handleConfirmReactivate}
+        onCancel={handleCancelReactivate}
+        isLoading={isUpdatingStatus}
+      />
     </DashboardLayout>
   );
 };
