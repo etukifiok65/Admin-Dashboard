@@ -44,4 +44,4 @@ VITE_SUPABASE_URL=https://spjqtdxnspndnnluayxp.supabase.co VITE_SUPABASE_ANON_KE
 
 ## Verify It's Working
 
-Once redeployed, if environment variables are still missing, you'll see a clear error message on the page telling you exactly what's missing.
+Once redeployed, if environment variables are still missing, you'll see a clear error message on the page telling you exactly what's missing. 
