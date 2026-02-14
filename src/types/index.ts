@@ -3,7 +3,7 @@ export interface AdminUser {
   id: string;
   email: string;
   name: string;
-  role: 'admin';
+  role: 'super_admin' | 'admin' | 'moderator';
   created_at: string;
 }
 
@@ -311,11 +311,12 @@ export interface AnalyticsMetrics {
 // Settings Types
 export interface AdminUserSettings {
   id: string;
+  auth_id: string;
   email: string;
   name: string;
   role: 'super_admin' | 'admin' | 'moderator';
   is_active: boolean;
-  last_login?: string;
+  last_login_at?: string;
   created_at: string;
   updated_at: string;
 }
@@ -330,10 +331,15 @@ export interface PlatformConfiguration {
 export interface ServiceTypeConfig {
   id: string;
   name: string;
-  description?: string;
+  description: string;
+  minRate: number;
+  maxRate: number;
+  duration: string;
+  color?: string | null;
+  icon?: string | null;
   isActive: boolean;
   createdAt: string;
-  updatedAt: string;
+  updatedAt?: string;
 }
 
 export interface AppointmentStatusConfig {
