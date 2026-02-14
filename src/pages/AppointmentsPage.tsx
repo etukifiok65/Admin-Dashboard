@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { AppointmentDetails, PaginationOptions } from '@app-types/index';
 import { adminDashboardService } from '@services/adminDashboard.service';
 import { DashboardLayout } from '@components/DashboardLayout';
+import ConfirmModal from '@components/ConfirmModal';
 import { format } from 'date-fns';
 
 const ITEMS_PER_PAGE = 10;
@@ -40,6 +41,8 @@ export const AppointmentsPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
+  const [isConfirmOpen, setIsConfirmOpen] = useState(false);
+  const [pendingStatus, setPendingStatus] = useState<'Requested' | 'Scheduled' | 'Completed' | 'Cancelled' | null>(null);
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -103,31 +106,44 @@ export const AppointmentsPage: React.FC = () => {
   const handleUpdateStatus = async (status: 'Requested' | 'Scheduled' | 'Completed' | 'Cancelled') => {
     if (!selectedAppointmentId) return;
 
-    const confirmed = confirm(`Are you sure you want to mark this appointment as ${status}?`);
-    if (!confirmed) return;
+    // Open confirmation modal
+    setPendingStatus(status);
+    setIsConfirmOpen(true);
+  };
+
+  const handleConfirmStatusUpdate = async () => {
+    if (!selectedAppointmentId || !pendingStatus) return;
 
     setIsUpdatingStatus(true);
     setActionError(null);
 
     try {
-      await adminDashboardService.updateAppointmentStatus(selectedAppointmentId, status);
+      await adminDashboardService.updateAppointmentStatus(selectedAppointmentId, pendingStatus);
       
       // Refresh data
       setAppointments(prev =>
         prev.map(apt =>
-          apt.id === selectedAppointmentId ? { ...apt, status } : apt
+          apt.id === selectedAppointmentId ? { ...apt, status: pendingStatus } : apt
         )
       );
       
       if (selectedAppointment) {
-        setSelectedAppointment({ ...selectedAppointment, status });
+        setSelectedAppointment({ ...selectedAppointment, status: pendingStatus });
       }
+
+      setIsConfirmOpen(false);
+      setPendingStatus(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update status';
       setActionError(message);
     } finally {
       setIsUpdatingStatus(false);
     }
+  };
+
+  const handleCancelStatusUpdate = () => {
+    setIsConfirmOpen(false);
+    setPendingStatus(null);
   };
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
@@ -629,6 +645,18 @@ export const AppointmentsPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      {/* Confirmation Modal */}
+      <ConfirmModal
+        isOpen={isConfirmOpen}
+        title="Confirm Status Change"
+        message={`Are you sure you want to mark this appointment as ${pendingStatus}?`}
+        confirmText="Confirm"
+        cancelText="Cancel"
+        onConfirm={handleConfirmStatusUpdate}
+        onCancel={handleCancelStatusUpdate}
+        isLoading={isUpdatingStatus}
+      />
     </DashboardLayout>
   );
 };
