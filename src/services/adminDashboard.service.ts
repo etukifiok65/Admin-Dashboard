@@ -1378,23 +1378,139 @@ class AdminDashboardService {
     try {
       const { data, error } = await supabase
         .from('admin_users')
-        .select('id, auth_id, name, role, is_active, created_at, updated_at')
+        .select('id, auth_id, email, name, role, is_active, last_login_at, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       if (error) throw error;
 
       return (data || []).map(admin => ({
         id: admin.id,
-        email: admin.auth_id || '', // We'd need to join with auth to get actual email
+        auth_id: admin.auth_id,
+        email: admin.email,
         name: admin.name,
-        role: admin.role,
+        role: admin.role as 'super_admin' | 'admin' | 'moderator',
         is_active: admin.is_active,
+        last_login_at: admin.last_login_at,
         created_at: admin.created_at,
         updated_at: admin.updated_at,
       }));
     } catch (error) {
       console.error('Error fetching admin users:', error);
       return null;
+    }
+  }
+
+  /**
+   * Create a new admin user
+   */
+  async createAdminUser(userData: {
+    email: string;
+    password: string;
+    name: string;
+    role: 'super_admin' | 'admin' | 'moderator';
+  }): Promise<AdminUserSettings | null> {
+    try {
+      // 1. Create auth user
+      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
+        email: userData.email,
+        password: userData.password,
+        email_confirm: true,
+      });
+
+      if (authError) throw authError;
+      if (!authData.user) throw new Error('Failed to create auth user');
+
+      // 2. Create admin_users record
+      const { data, error } = await supabase
+        .from('admin_users')
+        .insert({
+          auth_id: authData.user.id,
+          email: userData.email,
+          name: userData.name,
+          role: userData.role,
+          is_active: true,
+        })
+        .select()
+        .single();
+
+      if (error) {
+        // Rollback auth user if admin record creation fails
+        await supabase.auth.admin.deleteUser(authData.user.id);
+        throw error;
+      }
+
+      return {
+        id: data.id,
+        auth_id: data.auth_id,
+        email: data.email,
+        name: data.name,
+        role: data.role,
+        is_active: data.is_active,
+        last_login_at: data.last_login_at,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+    } catch (error) {
+      console.error('Error creating admin user:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update an admin user
+   */
+  async updateAdminUser(
+    id: string,
+    updates: Partial<Pick<AdminUserSettings, 'name' | 'role' | 'is_active'>>
+  ): Promise<AdminUserSettings | null> {
+    try {
+      const { data, error } = await supabase
+        .from('admin_users')
+        .update({
+          ...updates,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        id: data.id,
+        auth_id: data.auth_id,
+        email: data.email,
+        name: data.name,
+        role: data.role,
+        is_active: data.is_active,
+        last_login_at: data.last_login_at,
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+    } catch (error) {
+      console.error('Error updating admin user:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Toggle admin user active status
+   */
+  async toggleAdminStatus(id: string, isActive: boolean): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('admin_users')
+        .update({
+          is_active: isActive,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id);
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error toggling admin status:', error);
+      return false;
     }
   }
 
@@ -1432,19 +1548,75 @@ class AdminDashboardService {
   }
 
   /**
-   * Get service types
+   * Get service types from service_categories table
    */
   async getServiceTypes(): Promise<ServiceTypeConfig[] | null> {
     try {
-      const serviceTypes = [
-        { id: '1', name: 'Doctor Visit', description: 'Visit from a licensed doctor', isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-        { id: '2', name: 'Nurse Care', description: 'Care provided by a nurse', isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-        { id: '3', name: 'Home Care', description: 'General home care services', isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-        { id: '4', name: 'Specialized Care', description: 'Specialized medical care', isActive: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-      ];
-      return serviceTypes;
+      const { data, error } = await supabase
+        .from('service_categories')
+        .select('*')
+        .order('name', { ascending: true });
+
+      if (error) throw error;
+
+      // Map database fields to ServiceTypeConfig
+      return (data || []).map(category => ({
+        id: category.id,
+        name: category.name,
+        description: category.description || '',
+        minRate: category.min_rate || 0,
+        maxRate: category.max_rate || 0,
+        duration: category.duration || '60 mins',
+        color: category.color,
+        icon: category.icon,
+        isActive: true, // service_categories doesn't have is_active field, always true
+        createdAt: category.created_at,
+      }));
     } catch (error) {
       console.error('Error fetching service types:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update a service type
+   */
+  async updateServiceType(
+    id: string,
+    updates: {
+      name?: string;
+      description?: string;
+      min_rate?: number;
+      max_rate?: number;
+      duration?: string;
+      color?: string;
+      icon?: string;
+    }
+  ): Promise<ServiceTypeConfig | null> {
+    try {
+      const { data, error } = await supabase
+        .from('service_categories')
+        .update(updates)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      return {
+        id: data.id,
+        name: data.name,
+        description: data.description || '',
+        minRate: data.min_rate || 0,
+        maxRate: data.max_rate || 0,
+        duration: data.duration || '60 mins',
+        color: data.color,
+        icon: data.icon,
+        isActive: true,
+        createdAt: data.created_at,
+      };
+    } catch (error) {
+      console.error('Error updating service type:', error);
       return null;
     }
   }
