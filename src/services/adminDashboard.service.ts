@@ -1028,281 +1028,262 @@ class AdminDashboardService {
    * Get appointments by service type
    */
   async getAppointmentsByService(): Promise<AppointmentsByService[] | null> {
-    try {
-      const { data: appointments, error } = await supabase
-        .from('appointments')
-        .select('service_type, status');
+    const { data: appointments, error } = await supabase
+      .from('appointments')
+      .select('service_type, status');
 
-      if (error) throw error;
+    if (error) throw error;
 
-      const filtered = (appointments || [])
-        .filter(apt => apt.status === 'Completed');
+    const filtered = (appointments || [])
+      .filter(apt => apt.status === 'Completed');
 
-      const serviceTypeCounts = filtered
-        .reduce((acc: Record<string, number>, apt) => {
-          acc[apt.service_type] = (acc[apt.service_type] || 0) + 1;
-          return acc;
-        }, {});
+    const serviceTypeCounts = filtered
+      .reduce((acc: Record<string, number>, apt) => {
+        acc[apt.service_type] = (acc[apt.service_type] || 0) + 1;
+        return acc;
+      }, {});
 
-      const total = Object.values(serviceTypeCounts).reduce((sum, count) => sum + count, 0);
+    const total = Object.values(serviceTypeCounts).reduce((sum, count) => sum + count, 0);
 
-      // Calculate percentages ensuring they add up to 100
-      const entries = Object.entries(serviceTypeCounts);
-      const result = entries.map(([serviceType, count], index) => {
-        // For the last item, use remainder to ensure total = 100
-        const percentage = index === entries.length - 1
-          ? 100 - entries.slice(0, -1).reduce((sum, [_, c]) => sum + Math.floor((c / total) * 100), 0)
-          : Math.floor((count / total) * 100);
+    // Calculate percentages ensuring they add up to 100
+    const entries = Object.entries(serviceTypeCounts);
+    const result = entries.map(([serviceType, count], index) => {
+      // For the last item, use remainder to ensure total = 100
+      const percentage = index === entries.length - 1
+        ? 100 - entries.slice(0, -1).reduce((sum, [_, c]) => sum + Math.floor((c / total) * 100), 0)
+        : Math.floor((count / total) * 100);
 
-        return {
-          serviceType,
-          count,
-          percentage: total > 0 ? Math.max(1, percentage) : 0, // Ensure at least 1% visibility
-        };
-      });
+      return {
+        serviceType,
+        count,
+        percentage: total > 0 ? Math.max(1, percentage) : 0, // Ensure at least 1% visibility
+      };
+    });
 
-      return result;
-    } catch (error) {
-      console.error('Error fetching appointments by service:', error);
-      return null;
-    }
+    return result;
   }
 
   /**
    * Get top locations by appointment count and revenue
    */
   async getTopLocations(limit: number = 10): Promise<LocationAnalytics[] | null> {
-    try {
-      const { data: appointments, error: appointmentError } = await supabase
-        .from('appointments')
-        .select(`
-          total_cost,
-          status,
-          patients!appointments_patient_id_fkey (
-            id,
-            patient_addresses (
-              state
-            )
+    const { data: appointments, error: appointmentError } = await supabase
+      .from('appointments')
+      .select(`
+        total_cost,
+        status,
+        patient_id,
+        patients(
+          id,
+          patient_addresses(
+            state
           )
-        `);
-
-      if (appointmentError) throw appointmentError;
-
-      const locationStats = (appointments || [])
-        .filter(apt => 
-          apt.status === 'Completed' && 
-          Array.isArray(apt.patients) &&
-          apt.patients.length > 0 &&
-          Array.isArray(apt.patients[0]?.patient_addresses) &&
-          apt.patients[0].patient_addresses.length > 0
         )
-        .reduce((acc: Record<string, { count: number; revenue: number }>, apt) => {
-          // Get the first address (most relevant)
-          const state = Array.isArray(apt.patients) && apt.patients[0]?.patient_addresses?.[0]?.state;
-          if (!state) return acc;
+      `);
 
-          if (!acc[state]) {
-            acc[state] = { count: 0, revenue: 0 };
-          }
-          acc[state].count += 1;
-          acc[state].revenue += apt.total_cost ? parseFloat(apt.total_cost.toString()) : 0;
-          return acc;
-        }, {});
+    if (appointmentError) throw appointmentError;
 
-      return Object.entries(locationStats)
-        .map(([location, stats]) => ({
-          location,
-          appointmentCount: stats.count,
-          revenue: stats.revenue,
-        }))
-        .sort((a, b) => b.appointmentCount - a.appointmentCount)
-        .slice(0, limit);
-    } catch (error) {
-      console.error('Error fetching top locations:', error);
-      return null;
-    }
+    const locationStats = (appointments || [])
+      .filter(apt => {
+        // Handle case where patients might be array or object
+        const patientData = Array.isArray(apt.patients) ? apt.patients[0] : apt.patients;
+        return apt.status === 'Completed' && 
+               patientData &&
+               patientData.patient_addresses &&
+               Array.isArray(patientData.patient_addresses) &&
+               patientData.patient_addresses.length > 0;
+      })
+      .reduce((acc: Record<string, { count: number; revenue: number }>, apt) => {
+        // Handle case where patients might be array or object
+        const patientData = Array.isArray(apt.patients) ? apt.patients[0] : apt.patients;
+        const state = patientData?.patient_addresses?.[0]?.state;
+        if (!state) return acc;
+
+        if (!acc[state]) {
+          acc[state] = { count: 0, revenue: 0 };
+        }
+        acc[state].count += 1;
+        acc[state].revenue += apt.total_cost ? parseFloat(apt.total_cost.toString()) : 0;
+        return acc;
+      }, {});
+
+    return Object.entries(locationStats)
+      .map(([location, stats]) => ({
+        location,
+        appointmentCount: stats.count,
+        revenue: stats.revenue,
+      }))
+      .sort((a, b) => b.appointmentCount - a.appointmentCount)
+      .slice(0, limit);
   }
 
   /**
    * Get top earning providers
    */
   async getTopEarningProviders(limit: number = 10): Promise<ProviderEarnings[] | null> {
-    try {
-      const { data: appointments, error: appointmentError } = await supabase
-        .from('appointments')
-        .select(`
-          provider_id,
-          total_cost,
-          status,
-          providers!appointments_provider_id_fkey (
-            name
-          )
-        `)
-        .eq('status', 'Completed');
+    const { data: appointments, error: appointmentError } = await supabase
+      .from('appointments')
+      .select(`
+        provider_id,
+        total_cost,
+        status,
+        providers(
+          name
+        )
+      `)
+      .eq('status', 'Completed');
 
-      if (appointmentError) throw appointmentError;
+    if (appointmentError) throw appointmentError;
 
-      const providerStats = (appointments || [])
-        .reduce((acc: Record<string, { name: string; earnings: number; count: number }>, apt) => {
-          if (!acc[apt.provider_id]) {
-            acc[apt.provider_id] = {
-              name: (Array.isArray(apt.providers) && apt.providers[0]?.name) || 'Unknown',
-              earnings: 0,
-              count: 0,
-            };
-          }
-          acc[apt.provider_id].earnings += apt.total_cost ? parseFloat(apt.total_cost.toString()) : 0;
-          acc[apt.provider_id].count += 1;
-          return acc;
-        }, {});
+    const providerStats = (appointments || [])
+      .reduce((acc: Record<string, { name: string; earnings: number; count: number }>, apt) => {
+        if (!acc[apt.provider_id]) {
+          const providerData = Array.isArray(apt.providers) ? apt.providers[0] : apt.providers;
+          acc[apt.provider_id] = {
+            name: (providerData && typeof providerData === 'object' && providerData.name) || 'Unknown',
+            earnings: 0,
+            count: 0,
+          };
+        }
+        acc[apt.provider_id].earnings += apt.total_cost ? parseFloat(apt.total_cost.toString()) : 0;
+        acc[apt.provider_id].count += 1;
+        return acc;
+      }, {});
 
-      return Object.entries(providerStats)
-        .map(([providerId, stats]) => ({
-          providerId,
-          providerName: stats.name,
-          totalEarnings: stats.earnings,
-          appointmentCount: stats.count,
-          averageEarnings: stats.count > 0 ? Math.round(stats.earnings / stats.count) : 0,
-        }))
-        .sort((a, b) => b.totalEarnings - a.totalEarnings)
-        .slice(0, limit);
-    } catch (error) {
-      console.error('Error fetching top earning providers:', error);
-      return null;
-    }
+    return Object.entries(providerStats)
+      .map(([providerId, stats]) => ({
+        providerId,
+        providerName: stats.name,
+        totalEarnings: stats.earnings,
+        appointmentCount: stats.count,
+        averageEarnings: stats.count > 0 ? Math.round(stats.earnings / stats.count) : 0,
+      }))
+      .sort((a, b) => b.totalEarnings - a.totalEarnings)
+      .slice(0, limit);
   }
 
   /**
    * Get top providers by rating
    */
   async getTopProvidersByRating(limit: number = 10): Promise<ProviderRating[] | null> {
-    try {
-      const { data: reviews, error: reviewError } = await supabase
-        .from('reviews')
-        .select(`
-          provider_id,
-          rating,
-          providers!reviews_provider_id_fkey (
-            name
-          )
-        `);
+    const { data: reviews, error: reviewError } = await supabase
+      .from('reviews')
+      .select(`
+        provider_id,
+        rating,
+        providers(
+          name
+        )
+      `);
 
-      if (reviewError) throw reviewError;
+    if (reviewError) throw reviewError;
 
-      const providerRatings = (reviews || [])
-        .reduce((acc: Record<string, { name: string; totalRating: number; count: number }>, review) => {
-          if (!acc[review.provider_id]) {
-            acc[review.provider_id] = {
-              name: (Array.isArray(review.providers) && review.providers[0]?.name) || 'Unknown',
-              totalRating: 0,
-              count: 0,
-            };
-          }
-          acc[review.provider_id].totalRating += review.rating || 0;
-          acc[review.provider_id].count += 1;
-          return acc;
-        }, {});
+    const providerRatings = (reviews || [])
+      .reduce((acc: Record<string, { name: string; totalRating: number; count: number }>, review) => {
+        if (!acc[review.provider_id]) {
+          const providerData = Array.isArray(review.providers) ? review.providers[0] : review.providers;
+          acc[review.provider_id] = {
+            name: (providerData && typeof providerData === 'object' && providerData.name) || 'Unknown',
+            totalRating: 0,
+            count: 0,
+          };
+        }
+        acc[review.provider_id].totalRating += review.rating || 0;
+        acc[review.provider_id].count += 1;
+        return acc;
+      }, {});
 
-      return Object.entries(providerRatings)
-        .map(([providerId, stats]) => ({
-          providerId,
-          providerName: stats.name,
-          averageRating: stats.count > 0 ? parseFloat((stats.totalRating / stats.count).toFixed(2)) : 0,
-          totalReviews: stats.count,
-        }))
-        .sort((a, b) => b.averageRating - a.averageRating)
-        .slice(0, limit);
-    } catch (error) {
-      console.error('Error fetching top providers by rating:', error);
-      return null;
-    }
+    return Object.entries(providerRatings)
+      .map(([providerId, stats]) => ({
+        providerId,
+        providerName: stats.name,
+        averageRating: stats.count > 0 ? parseFloat((stats.totalRating / stats.count).toFixed(2)) : 0,
+        totalReviews: stats.count,
+      }))
+      .sort((a, b) => b.averageRating - a.averageRating)
+      .slice(0, limit);
   }
 
   /**
    * Get appointment trends
    */
   async getAppointmentTrends(): Promise<AnalyticsMetrics['appointmentTrends'] | null> {
-    try {
-      const { data: appointments, error } = await supabase
-        .from('appointments')
-        .select('scheduled_date, total_cost, status')
-        .eq('status', 'Completed');
+    const { data: appointments, error } = await supabase
+      .from('appointments')
+      .select('scheduled_date, total_cost, status')
+      .eq('status', 'Completed');
 
-      if (error) throw error;
+    if (error) throw error;
 
-      // Daily trends
-      const dailyStats = (appointments || [])
-        .reduce((acc: Record<string, { count: number; revenue: number }>, apt) => {
-          const date = apt.scheduled_date;
-          if (!acc[date]) {
-            acc[date] = { count: 0, revenue: 0 };
-          }
-          acc[date].count += 1;
-          acc[date].revenue += apt.total_cost ? parseFloat(apt.total_cost.toString()) : 0;
-          return acc;
-        }, {});
-
-      const daily: AppointmentTrendData[] = Object.entries(dailyStats)
-        .map(([date, stats]) => ({
-          date,
-          appointments: stats.count,
-          revenue: Math.round(stats.revenue),
-        }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-      // Weekly trends
-      const weeklyStats: Record<string, { count: number; revenue: number }> = {};
-      (appointments || []).forEach(apt => {
-        const date = new Date(apt.scheduled_date);
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay());
-        const weekKey = weekStart.toISOString().split('T')[0];
-
-        if (!weeklyStats[weekKey]) {
-          weeklyStats[weekKey] = { count: 0, revenue: 0 };
+    // Daily trends
+    const dailyStats = (appointments || [])
+      .reduce((acc: Record<string, { count: number; revenue: number }>, apt) => {
+        const date = apt.scheduled_date;
+        if (!acc[date]) {
+          acc[date] = { count: 0, revenue: 0 };
         }
-        weeklyStats[weekKey].count += 1;
-        weeklyStats[weekKey].revenue += apt.total_cost ? parseFloat(apt.total_cost.toString()) : 0;
-      });
+        acc[date].count += 1;
+        acc[date].revenue += apt.total_cost ? parseFloat(apt.total_cost.toString()) : 0;
+        return acc;
+      }, {});
 
-      const weekly: AppointmentTrendData[] = Object.entries(weeklyStats)
-        .map(([date, stats]) => ({
-          date,
-          appointments: stats.count,
-          revenue: Math.round(stats.revenue),
-        }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const daily: AppointmentTrendData[] = Object.entries(dailyStats)
+      .map(([date, stats]) => ({
+        date,
+        appointments: stats.count,
+        revenue: Math.round(stats.revenue),
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      // Monthly trends
-      const monthlyStats: Record<string, { count: number; revenue: number }> = {};
-      (appointments || []).forEach(apt => {
-        const date = new Date(apt.scheduled_date);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    // Weekly trends
+    const weeklyStats: Record<string, { count: number; revenue: number }> = {};
+    (appointments || []).forEach(apt => {
+      const date = new Date(apt.scheduled_date);
+      const weekStart = new Date(date);
+      weekStart.setDate(date.getDate() - date.getDay());
+      const weekKey = weekStart.toISOString().split('T')[0];
 
-        if (!monthlyStats[monthKey]) {
-          monthlyStats[monthKey] = { count: 0, revenue: 0 };
-        }
-        monthlyStats[monthKey].count += 1;
-        monthlyStats[monthKey].revenue += apt.total_cost ? parseFloat(apt.total_cost.toString()) : 0;
-      });
+      if (!weeklyStats[weekKey]) {
+        weeklyStats[weekKey] = { count: 0, revenue: 0 };
+      }
+      weeklyStats[weekKey].count += 1;
+      weeklyStats[weekKey].revenue += apt.total_cost ? parseFloat(apt.total_cost.toString()) : 0;
+    });
 
-      const monthly: AppointmentTrendData[] = Object.entries(monthlyStats)
-        .map(([date, stats]) => ({
-          date: `${date}-01`,
-          appointments: stats.count,
-          revenue: Math.round(stats.revenue),
-        }))
-        .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    const weekly: AppointmentTrendData[] = Object.entries(weeklyStats)
+      .map(([date, stats]) => ({
+        date,
+        appointments: stats.count,
+        revenue: Math.round(stats.revenue),
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
-      return {
-        daily,
-        weekly,
-        monthly,
-      };
-    } catch (error) {
-      console.error('Error fetching appointment trends:', error);
-      return null;
-    }
+    // Monthly trends
+    const monthlyStats: Record<string, { count: number; revenue: number }> = {};
+    (appointments || []).forEach(apt => {
+      const date = new Date(apt.scheduled_date);
+      const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+
+      if (!monthlyStats[monthKey]) {
+        monthlyStats[monthKey] = { count: 0, revenue: 0 };
+      }
+      monthlyStats[monthKey].count += 1;
+      monthlyStats[monthKey].revenue += apt.total_cost ? parseFloat(apt.total_cost.toString()) : 0;
+    });
+
+    const monthly: AppointmentTrendData[] = Object.entries(monthlyStats)
+      .map(([date, stats]) => ({
+        date: `${date}-01`,
+        appointments: stats.count,
+        revenue: Math.round(stats.revenue),
+      }))
+      .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+
+    return {
+      daily,
+      weekly,
+      monthly,
+    };
   }
 
   /**
@@ -1310,13 +1291,7 @@ class AdminDashboardService {
    */
   async getAnalyticsMetrics(): Promise<AnalyticsMetrics | null> {
     try {
-      const [
-        appointmentsByService,
-        topLocations,
-        topEarningProviders,
-        topProvidersByRating,
-        appointmentTrends,
-      ] = await Promise.all([
+      const results = await Promise.allSettled([
         this.getAppointmentsByService(),
         this.getTopLocations(),
         this.getTopEarningProviders(),
@@ -1324,12 +1299,27 @@ class AdminDashboardService {
         this.getAppointmentTrends(),
       ]);
 
+      const [
+        appointmentsByServiceResult,
+        topLocationsResult,
+        topEarningProvidersResult,
+        topProvidersByRatingResult,
+        appointmentTrendsResult,
+      ] = results;
+
+      // Log any rejections for debugging
+      results.forEach((result, index) => {
+        if (result.status === 'rejected') {
+          console.error(`Analytics function ${index} failed:`, result.reason);
+        }
+      });
+
       return {
-        appointmentsByService: appointmentsByService || [],
-        topLocations: topLocations || [],
-        topEarningProviders: topEarningProviders || [],
-        topProvidersByRating: topProvidersByRating || [],
-        appointmentTrends: appointmentTrends || { daily: [], weekly: [], monthly: [] },
+        appointmentsByService: appointmentsByServiceResult.status === 'fulfilled' ? (appointmentsByServiceResult.value || []) : [],
+        topLocations: topLocationsResult.status === 'fulfilled' ? (topLocationsResult.value || []) : [],
+        topEarningProviders: topEarningProvidersResult.status === 'fulfilled' ? (topEarningProvidersResult.value || []) : [],
+        topProvidersByRating: topProvidersByRatingResult.status === 'fulfilled' ? (topProvidersByRatingResult.value || []) : [],
+        appointmentTrends: appointmentTrendsResult.status === 'fulfilled' ? (appointmentTrendsResult.value || { daily: [], weekly: [], monthly: [] }) : { daily: [], weekly: [], monthly: [] },
       };
     } catch (error) {
       console.error('Error fetching analytics metrics:', error);

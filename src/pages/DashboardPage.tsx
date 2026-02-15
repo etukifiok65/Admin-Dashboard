@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { DashboardMetrics } from '@app-types/index';
 import { adminDashboardService } from '@services/adminDashboard.service';
 import { DashboardLayout } from '@components/DashboardLayout';
+import { format } from 'date-fns';
 
 const StatCard: React.FC<{
   title: string;
@@ -31,6 +32,36 @@ const StatCard: React.FC<{
           className={`flex h-12 w-12 items-center justify-center rounded-lg border bg-gradient-to-br ${toneClasses[tone]}`}
         >
           <span className="text-xl">{icon}</span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const DateTimeDisplay: React.FC = () => {
+  const [currentTime, setCurrentTime] = useState<string>('');
+  const [currentDate, setCurrentDate] = useState<string>('');
+
+  useEffect(() => {
+    const updateDateTime = () => {
+      const now = new Date();
+      setCurrentDate(format(now, 'EEEE, MMMM d, yyyy'));
+      setCurrentTime(format(now, 'hh:mm:ss a'));
+    };
+
+    updateDateTime();
+    const interval = setInterval(updateDateTime, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
+
+  return (
+    <div className="rounded-lg border border-slate-200 bg-gradient-to-br from-blue-50 to-brand-50 px-4 py-3 shadow-sm whitespace-nowrap">
+      <div className="flex items-center gap-2">
+        <div className="text-lg">🕐</div>
+        <div>
+          <p className="text-xs font-medium text-slate-600">{currentDate}</p>
+          <p className="text-lg font-semibold text-slate-900 font-mono">{currentTime}</p>
         </div>
       </div>
     </div>
@@ -81,11 +112,16 @@ export const DashboardPage: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-semibold text-slate-900">Dashboard</h1>
-          <p className="mt-2 text-sm text-slate-500">
-            Platform overview and operational highlights for today.
-          </p>
+        <div className="flex items-start justify-between gap-6">
+          <div>
+            <h1 className="text-3xl font-semibold text-slate-900">Dashboard</h1>
+            <p className="mt-2 text-sm text-slate-500">
+              Platform overview and operational highlights for today.
+            </p>
+          </div>
+          <div className="mt-0">
+            <DateTimeDisplay />
+          </div>
         </div>
 
         {error && (
