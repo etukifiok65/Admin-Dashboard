@@ -76,7 +76,7 @@ export const AnalyticsPage: React.FC = () => {
                       <div className="flex items-center justify-between mb-3">
                         <span className="text-sm font-semibold text-slate-700">{service.serviceType}</span>
                         <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-brand-100 text-brand-700 border border-brand-200">
-                          {service.count} appointments • {service.percentage}%
+                          {service.count} appointments
                         </span>
                       </div>
                       <div className="bg-slate-100 rounded-full h-8 overflow-hidden border border-slate-200">
@@ -85,7 +85,7 @@ export const AnalyticsPage: React.FC = () => {
                           style={{ width: `${service.percentage}%` }}
                         >
                           {service.percentage > 10 && (
-                            <span className="text-xs font-bold text-white drop-shadow">{service.percentage}%</span>
+                            <span className="text-xs font-bold text-[#059669] drop-shadow">{service.percentage}%</span>
                           )}
                         </div>
                       </div>

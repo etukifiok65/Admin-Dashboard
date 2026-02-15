@@ -1332,24 +1332,13 @@ class AdminDashboardService {
    */
   async getAdminUsers(): Promise<AdminUserSettings[] | null> {
     try {
-      const { data, error } = await supabase
-        .from('admin_users')
-        .select('id, auth_id, email, name, role, is_active, last_login_at, created_at, updated_at')
-        .order('created_at', { ascending: false });
+      const { data, error } = await supabase.functions.invoke('list-admin-users');
 
       if (error) throw error;
+      if (!data) return [];
+      if (data.error) throw new Error(data.error);
 
-      return (data || []).map(admin => ({
-        id: admin.id,
-        auth_id: admin.auth_id,
-        email: admin.email,
-        name: admin.name,
-        role: admin.role as 'super_admin' | 'admin' | 'moderator',
-        is_active: admin.is_active,
-        last_login_at: admin.last_login_at,
-        created_at: admin.created_at,
-        updated_at: admin.updated_at,
-      }));
+      return data as AdminUserSettings[];
     } catch (error) {
       console.error('Error fetching admin users:', error);
       return null;
@@ -1366,49 +1355,31 @@ class AdminDashboardService {
     role: 'super_admin' | 'admin' | 'moderator';
   }): Promise<AdminUserSettings | null> {
     try {
-      // 1. Create auth user
-      const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-        email: userData.email,
-        password: userData.password,
-        email_confirm: true,
-      });
-
-      if (authError) throw authError;
-      if (!authData.user) throw new Error('Failed to create auth user');
-
-      // 2. Create admin_users record
-      const { data, error } = await supabase
-        .from('admin_users')
-        .insert({
-          auth_id: authData.user.id,
+      const { data, error } = await supabase.functions.invoke('create-admin-user', {
+        body: {
           email: userData.email,
+          password: userData.password,
           name: userData.name,
           role: userData.role,
-          is_active: true,
-        })
-        .select()
-        .single();
+        },
+      });
 
       if (error) {
-        // Rollback auth user if admin record creation fails
-        await supabase.auth.admin.deleteUser(authData.user.id);
-        throw error;
+        throw new Error(error.message || 'Failed to create admin user');
       }
 
-      return {
-        id: data.id,
-        auth_id: data.auth_id,
-        email: data.email,
-        name: data.name,
-        role: data.role,
-        is_active: data.is_active,
-        last_login_at: data.last_login_at,
-        created_at: data.created_at,
-        updated_at: data.updated_at,
-      };
+      if (!data) {
+        throw new Error('No response from server');
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      return data as AdminUserSettings;
     } catch (error) {
       console.error('Error creating admin user:', error);
-      return null;
+      throw error;
     }
   }
 

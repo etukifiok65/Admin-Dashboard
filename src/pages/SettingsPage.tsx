@@ -73,9 +73,16 @@ export const SettingsPage: React.FC = () => {
   return (
     <DashboardLayout>
       <div className="space-y-8">
-        <div>
-          <h1 className="text-3xl font-semibold text-slate-900">Settings</h1>
-          <p className="mt-2 text-sm text-slate-500">Platform configuration and administration</p>
+        <div className="flex items-start justify-between">
+          <div>
+            <h1 className="text-3xl font-semibold text-slate-900">Settings</h1>
+            <p className="mt-2 text-sm text-slate-500">Platform configuration and administration</p>
+          </div>
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-2">
+            <p className="text-xs font-semibold text-amber-900">
+              🔒 Super Admin Only
+            </p>
+          </div>
         </div>
 
         {error && (

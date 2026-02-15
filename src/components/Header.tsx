@@ -24,24 +24,22 @@ export const Header: React.FC = () => {
           />
         </div>
 
-        <div className="flex items-center gap-3">
-          <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white px-3 py-2 shadow-sm min-w-[240px]">
-            <div className="flex-1 text-xs min-w-0">
-              <p className="font-semibold text-slate-900 leading-tight truncate">
-                {user?.name || '\u00A0'}
-              </p>
-              <p className="text-slate-500 truncate">
-                {user?.email || '\u00A0'}
-              </p>
-            </div>
-            <button
-              onClick={handleLogout}
-              className="flex-shrink-0 rounded-lg border border-slate-200 px-2 py-1 text-xs font-semibold text-slate-600 transition hover:border-brand-200 hover:text-brand-700"
-              type="button"
-            >
-              Logout
-            </button>
+        <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-1 text-right">
+            <p className="text-xs font-semibold text-slate-900">
+              {user?.name || '\u00A0'}
+            </p>
+            <span className="inline-flex h-fit w-fit rounded-full border px-2 py-0.5 text-xs font-semibold capitalize bg-blue-50 border-blue-200 text-blue-700">
+              {user?.role.replace('_', ' ') || '\u00A0'}
+            </span>
           </div>
+          <button
+            onClick={handleLogout}
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-brand-200 hover:text-brand-700 hover:bg-brand-50"
+            type="button"
+          >
+            Logout
+          </button>
         </div>
       </div>
     </header>

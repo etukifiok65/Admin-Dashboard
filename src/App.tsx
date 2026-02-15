@@ -1,5 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { ProtectedRoute } from '@components/ProtectedRoute';
+import { RoleBasedRoute } from '@components/RoleBasedRoute';
+import { useAdminAuth } from '@hooks/useAdminAuth';
 import {
   LoginPage,
   DashboardPage,
@@ -12,6 +13,27 @@ import {
   SettingsPage,
 } from '@pages/index';
 import './styles/index.css';
+
+const LandingRedirect: React.FC = () => {
+  const { user, isAuthenticated, isLoading } = useAdminAuth();
+
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center h-screen">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-blue-200 border-t-blue-600 rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return <Navigate to="/dashboard" replace />;
+};
 
 function App() {
   // Check for environment variables and show helpful error
@@ -76,71 +98,71 @@ function App() {
         <Route
           path="/dashboard"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute requiredPage="dashboard">
               <DashboardPage />
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/users"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute requiredPage="users">
               <UsersPage />
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/providers"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute requiredPage="providers">
               <ProvidersPage />
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/verifications"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute requiredPage="verifications">
               <VerificationsPage />
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/appointments"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute requiredPage="appointments">
               <AppointmentsPage />
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/financial"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute requiredPage="financial">
               <FinancialPage />
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/analytics"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute requiredPage="analytics">
               <AnalyticsPage />
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
         <Route
           path="/settings"
           element={
-            <ProtectedRoute>
+            <RoleBasedRoute requiredPage="settings">
               <SettingsPage />
-            </ProtectedRoute>
+            </RoleBasedRoute>
           }
         />
 
         {/* Default Routes */}
-        <Route path="/" element={<Navigate to="/dashboard" replace />} />
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="/" element={<LandingRedirect />} />
+        <Route path="*" element={<LandingRedirect />} />
       </Routes>
     </BrowserRouter>
   );

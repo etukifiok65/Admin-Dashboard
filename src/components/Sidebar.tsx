@@ -1,5 +1,8 @@
 import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
+import { useAdminAuth } from '@hooks/useAdminAuth';
+import { canAccessPage } from '@utils/permissions';
+import type { PagePath } from '@utils/permissions';
 
 interface SidebarProps {
   isOpen?: boolean;
@@ -10,20 +13,28 @@ interface NavItem {
   label: string;
   path: string;
   icon: string;
+  requiredPage: PagePath;
 }
 
 const navItems: NavItem[] = [
-  { label: 'Dashboard', path: '/dashboard', icon: '📊' },
-  { label: 'Users', path: '/users', icon: '👥' },
-  { label: 'Providers', path: '/providers', icon: '⚕️' },
-  { label: 'Appointments', path: '/appointments', icon: '📅' },
-  { label: 'Financial', path: '/financial', icon: '💰' },
-  { label: 'Analytics', path: '/analytics', icon: '📈' },
-  { label: 'Settings', path: '/settings', icon: '⚙️' },
+  { label: 'Dashboard', path: '/dashboard', icon: '📊', requiredPage: 'dashboard' },
+  { label: 'Users', path: '/users', icon: '👥', requiredPage: 'users' },
+  { label: 'Providers', path: '/providers', icon: '⚕️', requiredPage: 'providers' },
+  { label: 'Appointments', path: '/appointments', icon: '📅', requiredPage: 'appointments' },
+  { label: 'Verifications', path: '/verifications', icon: '✅', requiredPage: 'verifications' },
+  { label: 'Financial', path: '/financial', icon: '💰', requiredPage: 'financial' },
+  { label: 'Analytics', path: '/analytics', icon: '📈', requiredPage: 'analytics' },
+  { label: 'Settings', path: '/settings', icon: '⚙️', requiredPage: 'settings' },
 ];
 
 export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
   const location = useLocation();
+  const { user } = useAdminAuth();
+
+  // Filter nav items based on user's role
+  const visibleNavItems = navItems.filter(item => 
+    canAccessPage(user, item.requiredPage)
+  );
 
   return (
     <>
@@ -42,7 +53,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen = true, onClose }) => {
         }`}
       >
         <nav className="p-6 space-y-2">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const isActive = location.pathname.startsWith(item.path);
             return (
               <Link

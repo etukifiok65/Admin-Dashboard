@@ -49,7 +49,7 @@ class AdminAuthService {
           id: user.user.id,
           email: user.user.email || '',
           name: user.user.user_metadata?.name || user.user.email || '',
-          role: 'admin',
+          role: (user.user.user_metadata?.role || user.user.app_metadata?.role || 'admin') as 'super_admin' | 'admin' | 'moderator',
           created_at: user.user.created_at || new Date().toISOString(),
         };
 
@@ -60,7 +60,7 @@ class AdminAuthService {
         id: adminProfile.id,
         email: adminProfile.email,
         name: adminProfile.name,
-        role: 'admin',
+        role: adminProfile.role,
         created_at: adminProfile.created_at,
       };
 
@@ -113,7 +113,7 @@ class AdminAuthService {
           id: adminProfile.id,
           email: adminProfile.email,
           name: adminProfile.name,
-          role: 'admin',
+          role: adminProfile.role,
           created_at: adminProfile.created_at,
         };
       }
@@ -129,7 +129,7 @@ class AdminAuthService {
         id: user.id,
         email: user.email || '',
         name: user.user_metadata?.name || user.email || '',
-        role: 'admin',
+        role: (user.user_metadata?.role || user.app_metadata?.role || 'admin') as 'super_admin' | 'admin' | 'moderator',
         created_at: user.created_at || new Date().toISOString(),
       };
     } catch {

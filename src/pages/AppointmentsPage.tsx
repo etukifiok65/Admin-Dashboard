@@ -37,7 +37,7 @@ export const AppointmentsPage: React.FC = () => {
   const [actionError, setActionError] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Requested' | 'Scheduled' | 'Completed' | 'Cancelled'>('all');
-  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'date'>('date');
+  const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'date'>('newest');
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
