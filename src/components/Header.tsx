@@ -29,13 +29,13 @@ export const Header: React.FC = () => {
             <p className="text-xs font-semibold text-slate-900">
               {user?.name || '\u00A0'}
             </p>
-            <span className="inline-flex h-fit w-fit rounded-full border px-2 py-0.5 text-xs font-semibold capitalize bg-blue-50 border-blue-200 text-blue-700">
+            <span className="inline-flex h-fit w-fit rounded-full border px-2 py-0.5 text-xs font-semibold capitalize bg-[#D1FAE5] border-[#059669] text-[#065F46]">
               {user?.role.replace('_', ' ') || '\u00A0'}
             </span>
           </div>
           <button
             onClick={handleLogout}
-            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-brand-200 hover:text-brand-700 hover:bg-brand-50"
+            className="rounded-lg border border-slate-200 px-3 py-1.5 text-xs font-semibold text-slate-600 transition hover:border-[#059669] hover:text-[#065F46] hover:bg-[#D1FAE5]"
             type="button"
           >
             Logout
