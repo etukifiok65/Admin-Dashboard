@@ -768,7 +768,7 @@ export const VerificationsPage: React.FC = () => {
             {activeQueue === 'providers' ? (
               <>
                 <div className="flex items-center justify-between">
-                  <h2 className="text-lg font-semibold text-slate-900">Verification Details</h2>
+                  <h2 className="text-lg font-semibold text-slate-900">Provider Verification</h2>
                   {selectedProvider && (
                     <span
                       className={`rounded-full px-3 py-1 text-xs font-semibold ${statusBadgeClass(
