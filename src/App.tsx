@@ -15,7 +15,7 @@ import {
 import './styles/index.css';
 
 const LandingRedirect: React.FC = () => {
-  const { user, isAuthenticated, isLoading } = useAdminAuth();
+  const { isAuthenticated, isLoading } = useAdminAuth();
 
   if (isLoading) {
     return (
