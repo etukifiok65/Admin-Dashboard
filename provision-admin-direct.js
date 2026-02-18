@@ -8,8 +8,12 @@
 import { createClient } from '@supabase/supabase-js';
 
 const SUPABASE_URL = "https://spjqtdxnspndnnluayxp.supabase.co";
-const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY || 
-  "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwanF0ZHhuc3BuZG5ubHVheXhwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTUzNDI0MCwiZXhwIjoyMDgxMTEwMjQwfQ.8xtJ3ZQKg1HMHXTI9DKZMkZDE6a_AFuvs76EgXH_AMU";
+const SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SERVICE_ROLE_KEY) {
+  console.error("Missing required env var: SUPABASE_SERVICE_ROLE_KEY");
+  process.exit(1);
+}
 
 const email = process.argv[2] || "homicareplus@gmail.com";
 const role = process.argv[3] || "super_admin";

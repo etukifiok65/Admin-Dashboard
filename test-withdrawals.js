@@ -2,7 +2,12 @@
 
 import https from 'https';
 
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwanF0ZHhuc3BuZG5ubHVheXhwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTUzNDI0MCwiZXhwIjoyMDgxMTEwMjQwfQ.8xtJ3ZQKg1HMHXTI9DKZMkZDE6a_AFuvs76EgXH_AMU';
+const SUPABASE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!SUPABASE_KEY) {
+  console.error('Missing required env var: SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
 
 function supabaseRequest(method, path, body = null) {
   return new Promise((resolve, reject) => {

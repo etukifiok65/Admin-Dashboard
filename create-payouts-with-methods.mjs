@@ -2,7 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 
 const supabaseUrl = 'https://spjqtdxnspndnnluayxp.supabase.co';
 // Use service role key to bypass RLS for data creation
-const supabaseServiceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwanF0ZHhuc3BuZG5ubHVheXhwIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2NTUzNDI0MCwiZXhwIjoyMDgxMTEwMjQwfQ.8xtJ3ZQKg1HMHXTI9DKZMkZDE6a_AFuvs76EgXH_AMU';
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+if (!supabaseServiceKey) {
+  console.error('Missing required env var: SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
 
 const supabase = createClient(supabaseUrl, supabaseServiceKey);
 

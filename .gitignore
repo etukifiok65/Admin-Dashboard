@@ -9,6 +9,8 @@ node_modules/
 
 # Misc
 .DS_Store
+.env
+.env.production
 .env.local
 .env.*.local
 *.pem
