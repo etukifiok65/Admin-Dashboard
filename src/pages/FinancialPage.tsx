@@ -39,7 +39,7 @@ export const FinancialPage: React.FC = () => {
   const [transactionFilter, setTransactionFilter] = useState<'all' | 'topup' | 'payment' | 'refund'>('all');
   const [transactionStatus, setTransactionStatus] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
   const [payoutStatus, setPayoutStatus] = useState<'all' | 'pending' | 'processing' | 'completed' | 'failed'>('all');
-  const [isUpdatingPayout, setIsUpdatingPayout] = useState(false);
+  const [updatingPayoutId, setUpdatingPayoutId] = useState<string | null>(null);
   const [isPayoutConfirmOpen, setIsPayoutConfirmOpen] = useState(false);
   const [pendingPayoutUpdate, setPendingPayoutUpdate] = useState<{id: string, status: 'pending' | 'processing' | 'completed' | 'failed'} | null>(null);
 
@@ -92,13 +92,17 @@ export const FinancialPage: React.FC = () => {
             status: payoutStatus as any,
           });
 
+          console.log('Payouts response:', response);
           if (response) {
             setPayouts(response.data);
             setTotal(response.total);
+          } else {
+            setError('No response from payouts service');
           }
         }
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to load data';
+        console.error('Fetch error:', message, err);
         setError(message);
       } finally {
         setIsLoading(false);
@@ -117,23 +121,36 @@ export const FinancialPage: React.FC = () => {
   const handleConfirmPayoutUpdate = async () => {
     if (!pendingPayoutUpdate) return;
 
-    setIsUpdatingPayout(true);
+    setUpdatingPayoutId(pendingPayoutUpdate.id);
+    setError(null);
 
     try {
+      console.log('Updating payout:', pendingPayoutUpdate);
       const updated = await adminDashboardService.updatePayoutStatus(pendingPayoutUpdate.id, pendingPayoutUpdate.status);
+      
       if (updated) {
+        console.log('Successfully updated payout:', updated);
         setPayouts(prev =>
-          prev.map(p => (p.id === pendingPayoutUpdate.id ? { ...p, status: updated.status, completed_at: updated.completed_at } : p))
+          prev.map(p => 
+            p.id === pendingPayoutUpdate.id 
+              ? { ...p, status: updated.status, completed_at: updated.completed_at } 
+              : p
+          )
         );
+        setError(null);
+      } else {
+        console.error('No data returned from update');
+        setError('Failed to update payout: No response from server');
       }
 
       setIsPayoutConfirmOpen(false);
       setPendingPayoutUpdate(null);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to update payout status';
+      console.error('Payout update error:', err);
       setError(message);
     } finally {
-      setIsUpdatingPayout(false);
+      setUpdatingPayoutId(null);
     }
   };
 
@@ -400,6 +417,7 @@ export const FinancialPage: React.FC = () => {
                           <th className="px-6 py-3 text-left">Date</th>
                           <th className="px-6 py-3 text-left">Provider</th>
                           <th className="px-6 py-3 text-left">Amount</th>
+                          <th className="px-6 py-3 text-left">Payment Method</th>
                           <th className="px-6 py-3 text-left">Status</th>
                           <th className="px-6 py-3 text-left">Actions</th>
                         </tr>
@@ -418,6 +436,26 @@ export const FinancialPage: React.FC = () => {
                               ₦{payout.amount.toLocaleString()}
                             </td>
                             <td className="px-6 py-4">
+                              <div className="text-sm text-slate-900">
+                                {payout.payout_method ? (
+                                  <div className="space-y-1">
+                                    <div className="font-semibold capitalize">
+                                      {payout.payout_method.method_type === 'bank_account' ? '🏦 Bank Account' : '📱 Mobile Money'}
+                                    </div>
+                                    <div className="text-xs text-slate-600">
+                                      <div>{payout.payout_method.account_name}</div>
+                                      <div className="font-mono">{payout.payout_method.account_number}</div>
+                                      {payout.payout_method.bank_name && (
+                                        <div className="text-slate-500">{payout.payout_method.bank_name}</div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <span className="text-slate-400 italic">Not specified</span>
+                                )}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
                               <span
                                 className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
                                   payoutStatusColorMap[payout.status]
@@ -429,20 +467,15 @@ export const FinancialPage: React.FC = () => {
                             <td className="px-6 py-4">
                               {payout.status === 'pending' && (
                                 <button
-                                  onClick={() => handleUpdatePayoutStatus(payout.id, 'processing')}
-                                  disabled={isUpdatingPayout}
-                                  className="rounded-lg border border-blue-200 bg-blue-50 px-2 py-1 text-xs font-semibold text-blue-700 transition hover:bg-blue-100 disabled:opacity-60"
-                                >
-                                  Process
-                                </button>
-                              )}
-                              {payout.status === 'processing' && (
-                                <button
-                                  onClick={() => handleUpdatePayoutStatus(payout.id, 'completed')}
-                                  disabled={isUpdatingPayout}
+                                  onClick={() => {
+                                    console.log('Button clicked for payout:', payout.id);
+                                    handleUpdatePayoutStatus(payout.id, 'completed');
+                                  }}
+                                  disabled={updatingPayoutId === payout.id}
                                   className="rounded-lg border border-emerald-200 bg-emerald-50 px-2 py-1 text-xs font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:opacity-60"
+                                  type="button"
                                 >
-                                  Complete
+                                  {updatingPayoutId === payout.id ? 'Updating...' : 'Mark as Paid'}
                                 </button>
                               )}
                             </td>
@@ -494,7 +527,7 @@ export const FinancialPage: React.FC = () => {
         cancelText="Cancel"
         onConfirm={handleConfirmPayoutUpdate}
         onCancel={handleCancelPayoutUpdate}
-        isLoading={isUpdatingPayout}
+        isLoading={updatingPayoutId !== null}
       />    </DashboardLayout>
   );
 };

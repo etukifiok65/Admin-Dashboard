@@ -25,6 +25,16 @@ import type {
   AppointmentStatusConfig,
 } from '@app-types/index';
 
+const SEARCH_INPUT_MAX_LENGTH = 80;
+
+const sanitizeSearchTerm = (input: string): string => {
+  return input
+    .trim()
+    .slice(0, SEARCH_INPUT_MAX_LENGTH)
+    .replace(/[^a-zA-Z0-9@._+\-\s]/g, '')
+    .replace(/\s+/g, ' ');
+};
+
 class AdminDashboardService {
   /**
    * Get dashboard metrics
@@ -144,9 +154,13 @@ class AdminDashboardService {
         .select('*', { count: 'exact' });
 
       if (params?.search) {
+        const safeSearch = sanitizeSearchTerm(params.search);
+
+        if (safeSearch) {
         query = query.or(
-          `name.ilike.%${params.search}%,phone_number.like.%${params.search}%`
+          `name.ilike.%${safeSearch}%,phone_number.like.%${safeSearch}%`
         );
+        }
       }
 
       if (params?.status && params.status !== 'all') {
@@ -199,9 +213,13 @@ class AdminDashboardService {
       }
 
       if (params?.search) {
+        const safeSearch = sanitizeSearchTerm(params.search);
+
+        if (safeSearch) {
         query = query.or(
-          `name.ilike.%${params.search}%,specialty.ilike.%${params.search}%,phone_number.like.%${params.search}%,license_number.ilike.%${params.search}%`
+          `name.ilike.%${safeSearch}%,specialty.ilike.%${safeSearch}%,phone_number.like.%${safeSearch}%,license_number.ilike.%${safeSearch}%`
         );
+        }
       }
 
       const sortAscending = params?.sort === 'oldest';
@@ -256,9 +274,13 @@ class AdminDashboardService {
       }
 
       if (params?.search) {
+        const safeSearch = sanitizeSearchTerm(params.search);
+
+        if (safeSearch) {
         query = query.or(
-          `name.ilike.%${params.search}%,specialty.ilike.%${params.search}%,phone_number.like.%${params.search}%,license_number.ilike.%${params.search}%`
+          `name.ilike.%${safeSearch}%,specialty.ilike.%${safeSearch}%,phone_number.like.%${safeSearch}%,license_number.ilike.%${safeSearch}%`
         );
+        }
       }
 
       const sortAscending = params?.sort === 'oldest';
@@ -322,9 +344,13 @@ class AdminDashboardService {
       }
 
       if (params?.search) {
+        const safeSearch = sanitizeSearchTerm(params.search);
+
+        if (safeSearch) {
         query = query.or(
-          `location.ilike.%${params.search}%,notes.ilike.%${params.search}%`
+          `location.ilike.%${safeSearch}%,notes.ilike.%${safeSearch}%`
         );
+        }
       }
 
       const sortField = params?.sort === 'date' ? 'scheduled_date' : 'created_at';
@@ -910,7 +936,11 @@ class AdminDashboardService {
       }
 
       if (params?.search) {
-        query = query.or(`reference.ilike.%${params.search}%,description.ilike.%${params.search}%`);
+        const safeSearch = sanitizeSearchTerm(params.search);
+
+        if (safeSearch) {
+          query = query.or(`reference.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`);
+        }
       }
 
       const { data, count, error } = await query
@@ -941,7 +971,7 @@ class AdminDashboardService {
   }
 
   /**
-   * Get provider payouts with pagination
+   * Get provider payouts (withdrawal requests) with pagination
    */
   async getProviderPayouts(
     options: PaginationOptions,
@@ -952,16 +982,35 @@ class AdminDashboardService {
   ): Promise<ListResponse<ProviderPayout> | null> {
     try {
       let query = supabase
-        .from('provider_payouts')
+        .from('provider_withdrawals')
         .select(`
-          *,
-          providers!provider_payouts_provider_id_fkey (
+          id,
+          provider_id,
+          amount,
+          status,
+          requested_at,
+          processed_at,
+          payout_method_id,
+          admin_note,
+          providers!provider_withdrawals_provider_id_fkey (
             name
+          ),
+          provider_payout_methods (
+            id,
+            method_type,
+            account_name,
+            account_number,
+            bank_code,
+            bank_name
           )
         `, { count: 'exact' });
 
+      // Map status values: 'Pending' -> 'pending', 'Paid' -> 'completed'
       if (params?.status && params.status !== 'all') {
-        query = query.eq('status', params.status);
+        const dbStatus = params.status === 'completed' ? 'Paid' : 
+                         params.status === 'pending' ? 'Pending' :
+                         params.status;
+        query = query.ilike('status', dbStatus);
       }
 
       if (params?.provider_id) {
@@ -969,7 +1018,7 @@ class AdminDashboardService {
       }
 
       const { data, count, error } = await query
-        .order('created_at', { ascending: false })
+        .order('requested_at', { ascending: false })
         .range(
           (options.page - 1) * options.pageSize,
           options.page * options.pageSize - 1
@@ -977,10 +1026,19 @@ class AdminDashboardService {
 
       if (error) throw error;
 
-      const payouts = (data || []).map((payout: any) => ({
-        ...payout,
-        provider_name: payout.providers?.name,
-      })) as ProviderPayout[];
+      const payouts: ProviderPayout[] = (data || []).map((withdrawal: any) => ({
+        id: withdrawal.id,
+        provider_id: withdrawal.provider_id,
+        provider_name: withdrawal.providers?.[0]?.name || withdrawal.providers?.name,
+        payout_method_id: withdrawal.payout_method_id,
+        payout_method: withdrawal.provider_payout_methods?.[0] || withdrawal.provider_payout_methods,
+        amount: parseFloat(withdrawal.amount),
+        status: withdrawal.status === 'Paid' ? 'completed' : 
+                withdrawal.status === 'Pending' ? 'pending' : 'pending',
+        reference: withdrawal.admin_note,
+        created_at: withdrawal.requested_at,
+        completed_at: withdrawal.processed_at,
+      }));
 
       return {
         data: payouts,
@@ -989,7 +1047,10 @@ class AdminDashboardService {
         pageSize: options.pageSize,
       };
     } catch (error) {
-      console.error('Error fetching provider payouts:', error);
+      console.error('Error fetching provider withdrawals:', error);
+      if (error instanceof Error) {
+        console.error('Details:', error.message);
+      }
       return null;
     }
   }
@@ -1002,24 +1063,86 @@ class AdminDashboardService {
     status: 'pending' | 'processing' | 'completed' | 'failed'
   ): Promise<ProviderPayout | null> {
     try {
-      const updates: any = { status };
+      console.log('📝 updatePayoutStatus called:', { payoutId, status });
+      
+      // Map status from API format to database format
+      const dbStatus = status === 'completed' ? 'Paid' : 
+                       status === 'pending' ? 'Pending' :
+                       status === 'processing' ? 'Pending' : 'Pending';
 
-      if (status === 'completed') {
-        updates.completed_at = new Date().toISOString();
+      console.log('📝 Calling stored procedure with:', { payoutId, dbStatus });
+
+      // Call the SECURITY DEFINER function to bypass RLS
+      const { data: procedureResult, error: procedureError } = await supabase
+        .rpc('mark_withdrawal_as_paid', {
+          withdrawal_id: payoutId,
+          new_status: dbStatus
+        });
+
+      if (procedureError) {
+        console.error('❌ Error calling stored procedure:', procedureError);
+        throw procedureError;
       }
 
-      const { data, error } = await supabase
-        .from('provider_payouts')
-        .update(updates)
+      console.log('✅ Stored procedure returned:', procedureResult);
+
+      if (!procedureResult || procedureResult.length === 0) {
+        console.error('❌ No data returned from procedure');
+        throw new Error('No data returned from update procedure');
+      }
+
+      // Fetch the full payout record with all relationships
+      const { data: fullData, error: fetchError } = await supabase
+        .from('provider_withdrawals')
+        .select(`
+          id,
+          provider_id,
+          amount,
+          status,
+          requested_at,
+          processed_at,
+          payout_method_id,
+          admin_note,
+          providers!provider_withdrawals_provider_id_fkey (
+            name
+          ),
+          provider_payout_methods (
+            id,
+            method_type,
+            account_name,
+            account_number,
+            bank_code,
+            bank_name
+          )
+        `)
         .eq('id', payoutId)
-        .select('*')
         .single();
 
-      if (error) throw error;
+      if (fetchError) {
+        console.error('❌ Error fetching updated withdrawal:', fetchError);
+        throw fetchError;
+      }
 
-      return (data || null) as ProviderPayout | null;
+      console.log('✅ Full withdrawal data fetched:', fullData);
+
+      const payout: ProviderPayout = {
+        id: fullData.id,
+        provider_id: fullData.provider_id,
+        provider_name: (fullData.providers as any)?.[0]?.name || (fullData.providers as any)?.name,
+        payout_method_id: fullData.payout_method_id,
+        payout_method: (fullData.provider_payout_methods as any)?.[0] || (fullData.provider_payout_methods as any),
+        amount: parseFloat(fullData.amount),
+        status: fullData.status === 'Paid' ? 'completed' : 
+                fullData.status === 'Pending' ? 'pending' : 'pending',
+        reference: fullData.admin_note,
+        created_at: fullData.requested_at,
+        completed_at: fullData.processed_at,
+      };
+
+      console.log('✅ Payout object created:', payout);
+      return payout;
     } catch (error) {
-      console.error('Error updating payout status:', error);
+      console.error('❌ Error updating withdrawal status:', error);
       throw error;
     }
   }

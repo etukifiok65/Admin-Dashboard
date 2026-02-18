@@ -39,7 +39,9 @@ class AdminAuthService {
         // Fallback: check if user has admin role in custom claims
         const userRole = (user.user.user_metadata?.role || user.user.app_metadata?.role);
         
-        if (userRole !== 'admin') {
+        // Check if user has any valid admin role
+        const validRoles = ['super_admin', 'admin', 'moderator'];
+        if (!validRoles.includes(userRole as string)) {
           await supabase.auth.signOut();
           return { user: null, error: 'User is not an admin' };
         }
@@ -121,7 +123,8 @@ class AdminAuthService {
       // Fallback: check if user has admin role in custom claims
       const userRole = (user.user_metadata?.role || user.app_metadata?.role);
 
-      if (userRole !== 'admin') {
+      const validRoles = ['super_admin', 'admin', 'moderator'];
+      if (!validRoles.includes(userRole as string)) {
         return null;
       }
 

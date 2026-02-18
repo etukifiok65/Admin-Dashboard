@@ -158,15 +158,31 @@ VITE_API_URL=https://api.yourdomain.com
 3. Check browser console for errors
 4. Test data fetching from Supabase
 5. Monitor error logs
+6. Follow [SECURITY_ROLLOUT_CHECKLIST.md](SECURITY_ROLLOUT_CHECKLIST.md) for security migration/CORS/CSP rollout order
 
 ## Security Considerations
 
 ### CORS Configuration
 
-Update Supabase CORS settings to allow your domain:
+Use strict allowlist-based CORS for admin edge functions:
 
-1. Go to Supabase Project Settings > API
-2. Add your deployment URL to allowed origins
+1. In Supabase Edge Function secrets, configure:
+  ```env
+  SUPABASE_URL=https://your-project.supabase.co
+  SERVICE_ROLE_KEY=your-service-role-key
+  ALLOWED_ORIGINS=https://admin.yourdomain.com,https://staging-admin.yourdomain.com,http://localhost:3000
+  ```
+2. Ensure every admin frontend origin is listed in `ALLOWED_ORIGINS`.
+3. Keep wildcard origins disabled for privileged admin endpoints.
+
+`SUPABASE_SERVICE_ROLE_KEY` is accepted for backward compatibility, but `SERVICE_ROLE_KEY` is preferred.
+
+### CSP Rollout (Report-Only → Enforced)
+
+1. Keep `Content-Security-Policy-Report-Only` in [public/_headers](public/_headers) during observation.
+2. Review violations in browser/dev tooling and confirm required sources are covered.
+3. When stable, replace `public/_headers` with [public/_headers.csp-enforce-template](public/_headers.csp-enforce-template) and deploy.
+4. Monitor for blocked resource regressions after enforcement.
 
 ### Rate Limiting
 

@@ -86,7 +86,7 @@ Create an endpoint to securely create admin users:
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-const adminKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+const adminKey = Deno.env.get("SERVICE_ROLE_KEY") ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 const supabaseUrl = Deno.env.get("SUPABASE_URL");
 
 serve(async (req) => {
@@ -208,6 +208,21 @@ VITE_API_URL=http://localhost:3001
 ```
 
 The anon key is safe to expose since RLS policies control access at the database level.
+
+### Edge Function Security Variables
+
+For admin management edge functions (`create-admin-user`, `list-admin-users`), configure these server-side variables in Supabase:
+
+```env
+SUPABASE_URL=https://your-project.supabase.co
+SERVICE_ROLE_KEY=your-service-role-key
+ALLOWED_ORIGINS=https://admin.yourdomain.com,https://staging-admin.yourdomain.com,http://localhost:3000
+```
+
+Notes:
+- `SERVICE_ROLE_KEY` is the preferred variable name.
+- `SUPABASE_SERVICE_ROLE_KEY` is also supported for backward compatibility.
+- `ALLOWED_ORIGINS` must be a comma-separated allowlist of trusted frontend origins.
 
 ## Testing Admin Access
 

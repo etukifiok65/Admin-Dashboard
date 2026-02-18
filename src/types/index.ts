@@ -235,11 +235,24 @@ export interface FinancialMetrics {
   totalTopUpRevenue: number; // All-time total top ups
 }
 
+export interface PayoutMethod {
+  id: string;
+  provider_id: string;
+  method_type: 'bank_account' | 'mobile_money';
+  account_name: string;
+  account_number: string;
+  bank_code?: string;
+  bank_name?: string;
+  is_default?: boolean;
+  verified?: boolean;
+}
+
 export interface ProviderPayout {
   id: string;
   provider_id: string;
   provider_name?: string;
   payout_method_id?: string;
+  payout_method?: PayoutMethod;
   amount: number;
   status: 'pending' | 'processing' | 'completed' | 'failed';
   reference?: string;
