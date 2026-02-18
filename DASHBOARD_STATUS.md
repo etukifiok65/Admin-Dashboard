@@ -78,7 +78,7 @@ VITE_SUPABASE_URL=https://spjqtdxnspndnnluayxp.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJh...
 
 # Service Role (Backend)
-VITE_SUPABASE_SERVICE_ROLE_KEY=eyJh...
+SERVICE_ROLE_KEY=eyJh...
 
 # App Settings
 VITE_APP_NAME=HomiCareplus Admin
@@ -90,7 +90,7 @@ VITE_API_URL=http://localhost:3001
 ```bash
 ✅ VITE_SUPABASE_URL - Set
 ✅ VITE_SUPABASE_ANON_KEY - Set
-✅ VITE_SUPABASE_SERVICE_ROLE_KEY - Set
+✅ SERVICE_ROLE_KEY - Set (server-side only)
 ```
 
 ---

@@ -199,7 +199,7 @@ Integrity:          100% - All data verified
 ```
 VITE_SUPABASE_URL=https://spjqtdxnspndnnluayxp.supabase.co
 VITE_SUPABASE_ANON_KEY=eyJh...
-VITE_SUPABASE_SERVICE_ROLE_KEY=eyJh...
+SERVICE_ROLE_KEY=eyJh... (server-side only)
 VITE_API_URL=http://localhost:3001
 VITE_APP_NAME=HomiCareplus Admin
 VITE_APP_ENVIRONMENT=development

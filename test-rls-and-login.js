@@ -1,9 +1,23 @@
 import { createClient } from '@supabase/supabase-js';
 
+const SUPABASE_URL = process.env.VITE_SUPABASE_URL || 'https://your-project-ref.supabase.co';
+const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
+const SUPABASE_ANON_KEY = process.env.VITE_SUPABASE_ANON_KEY;
+
+if (!SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('Missing required env var: SUPABASE_SERVICE_ROLE_KEY');
+  process.exit(1);
+}
+
+if (!SUPABASE_ANON_KEY) {
+  console.error('Missing required env var: VITE_SUPABASE_ANON_KEY');
+  process.exit(1);
+}
+
 // First, let's check the RLS policy by trying to query as a user would
 const serviceRoleClient = createClient(
-  'https://spjqtdxnspndnnluayxp.supabase.co',
-  process.env.SUPABASE_SERVICE_ROLE_KEY
+  SUPABASE_URL,
+  SUPABASE_SERVICE_ROLE_KEY
 );
 
 console.log('\n╔════════════════════════════════════════════════════════════════╗');
@@ -63,8 +77,8 @@ console.log('─'.repeat(60));
 
 // Create an anon client like the frontend does
 const anonClient = createClient(
-  'https://spjqtdxnspndnnluayxp.supabase.co',
-  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwanF0ZHhuc3BuZG5ubHVheXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MzQyNDAsImV4cCI6MjA4MTExMDI0MH0.M9_iFAAHlUEs9_rTrKbQcykLte_NOWKiOTvmeKaC9Mc'
+  SUPABASE_URL,
+  SUPABASE_ANON_KEY
 );
 
 const { data: { session } } = await anonClient.auth.getSession();

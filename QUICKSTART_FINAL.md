@@ -12,7 +12,7 @@ Your Admin Dashboard has been **fully configured and verified**! Here's what was
 ### Environment ✅  
 - **`.env` file** created with Supabase configuration
 - **Frontend variables** (VITE_SUPABASE_URL, VITE_SUPABASE_ANON_KEY)
-- **Backend variables** (VITE_SUPABASE_SERVICE_ROLE_KEY)
+- **Backend variables** (SERVICE_ROLE_KEY or SUPABASE_SERVICE_ROLE_KEY)
 
 ### Your Admin Account ✅
 ```

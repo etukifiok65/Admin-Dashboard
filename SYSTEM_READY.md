@@ -27,7 +27,7 @@ umanahwisdomos@gmail.com (admin)
 .env file created with:
 ✅ VITE_SUPABASE_URL
 ✅ VITE_SUPABASE_ANON_KEY
-✅ VITE_SUPABASE_SERVICE_ROLE_KEY
+✅ SERVICE_ROLE_KEY (server-side only)
 ✅ VITE_API_URL
 ✅ VITE_APP_NAME
 ✅ VITE_APP_ENVIRONMENT
@@ -117,7 +117,7 @@ umanahwisdomos@gmail.com (admin)
 File: .env (✅ CREATED)
 ├── VITE_SUPABASE_URL ✅
 ├── VITE_SUPABASE_ANON_KEY ✅
-├── VITE_SUPABASE_SERVICE_ROLE_KEY ✅
+├── SERVICE_ROLE_KEY ✅ (server-side only)
 ├── VITE_API_URL ✅
 ├── VITE_APP_NAME ✅
 └── VITE_APP_ENVIRONMENT ✅

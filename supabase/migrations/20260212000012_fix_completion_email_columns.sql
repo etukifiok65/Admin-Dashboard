@@ -61,7 +61,7 @@ BEGIN
         v_edge_function_url,
         ARRAY[
           http_header('Content-Type', 'application/json'),
-          http_header('Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwanF0ZHhuc3BuZG5ubHVheXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MzQyNDAsImV4cCI6MjA4MTExMDI0MH0.M9_iFAAHlUEs9_rTrKbQcykLte_NOWKiOTvmeKaC9Mc')
+          http_header('Authorization', 'Bearer REPLACE_WITH_SUPABASE_ANON_KEY')
         ],
         'application/json',
         json_build_object(
@@ -87,7 +87,7 @@ BEGIN
         v_edge_function_url,
         ARRAY[
           http_header('Content-Type', 'application/json'),
-          http_header('Authorization', 'Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwanF0ZHhuc3BuZG5ubHVheXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MzQyNDAsImV4cCI6MjA4MTExMDI0MH0.M9_iFAAHlUEs9_rTrKbQcykLte_NOWKiOTvmeKaC9Mc')
+          http_header('Authorization', 'Bearer REPLACE_WITH_SUPABASE_ANON_KEY')
         ],
         'application/json',
         json_build_object(

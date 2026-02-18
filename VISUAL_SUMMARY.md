@@ -83,7 +83,7 @@
 │  Required Variables:                                    │
 │  ├── VITE_SUPABASE_URL                ✅ Set           │
 │  ├── VITE_SUPABASE_ANON_KEY           ✅ Set           │
-│  ├── VITE_SUPABASE_SERVICE_ROLE_KEY   ✅ Set           │
+│  ├── SERVICE_ROLE_KEY                 ✅ Set (server)  │
 │  ├── VITE_API_URL                     ✅ Set           │
 │  ├── VITE_APP_NAME                    ✅ Set           │
 │  └── VITE_APP_ENVIRONMENT             ✅ Set           │

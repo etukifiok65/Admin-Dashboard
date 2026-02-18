@@ -18,7 +18,7 @@ Add the following environment variables for **Production**:
 | Variable Name | Value |
 |--------------|-------|
 | `VITE_SUPABASE_URL` | `https://spjqtdxnspndnnluayxp.supabase.co` |
-| `VITE_SUPABASE_ANON_KEY` | `eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwanF0ZHhuc3BuZG5ubHVheXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MzQyNDAsImV4cCI6MjA4MTExMDI0MH0.M9_iFAAHlUEs9_rTrKbQcykLte_NOWKiOTvmeKaC9Mc` |
+| `VITE_SUPABASE_ANON_KEY` | `your-supabase-anon-key` |
 | `VITE_APP_NAME` | `HomiCareplus Admin` |
 | `VITE_APP_ENVIRONMENT` | `production` |
 
@@ -39,7 +39,7 @@ After adding the environment variables:
 
 If the above doesn't work, you can also try adding them inline in the build command:
 ```bash
-VITE_SUPABASE_URL=https://spjqtdxnspndnnluayxp.supabase.co VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InNwanF0ZHhuc3BuZG5ubHVheXhwIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjU1MzQyNDAsImV4cCI6MjA4MTExMDI0MH0.M9_iFAAHlUEs9_rTrKbQcykLte_NOWKiOTvmeKaC9Mc npm run build
+VITE_SUPABASE_URL=https://your-project-ref.supabase.co VITE_SUPABASE_ANON_KEY=your-supabase-anon-key npm run build
 ```
 
 ## Verify It's Working
