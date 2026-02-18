@@ -11,6 +11,7 @@ const transactionTypeColorMap: Record<string, string> = {
   topup: 'bg-blue-100 text-blue-800 border-blue-200',
   payment: 'bg-purple-100 text-purple-800 border-purple-200',
   refund: 'bg-orange-100 text-orange-800 border-orange-200',
+  withdrawal: 'bg-rose-100 text-rose-800 border-rose-200',
 };
 
 const transactionStatusColorMap: Record<string, string> = {
@@ -36,7 +37,7 @@ export const FinancialPage: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
-  const [transactionFilter, setTransactionFilter] = useState<'all' | 'topup' | 'payment' | 'refund'>('all');
+  const [transactionFilter, setTransactionFilter] = useState<'all' | 'topup' | 'payment' | 'refund' | 'withdrawal'>('all');
   const [transactionStatus, setTransactionStatus] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
   const [payoutStatus, setPayoutStatus] = useState<'all' | 'pending' | 'processing' | 'completed' | 'failed'>('all');
   const [updatingPayoutId, setUpdatingPayoutId] = useState<string | null>(null);
@@ -275,6 +276,7 @@ export const FinancialPage: React.FC = () => {
                   <option value="topup">Top up</option>
                   <option value="payment">Payment</option>
                   <option value="refund">Refund</option>
+                  <option value="withdrawal">Withdrawal</option>
                 </select>
                 <select
                   value={transactionStatus}
@@ -307,7 +309,7 @@ export const FinancialPage: React.FC = () => {
                       <thead className="border-b border-slate-100 bg-slate-50/70 text-xs font-semibold uppercase text-slate-500">
                         <tr>
                           <th className="px-6 py-3 text-left">Date</th>
-                          <th className="px-6 py-3 text-left">Patient</th>
+                          <th className="px-6 py-3 text-left">User</th>
                           <th className="px-6 py-3 text-left">Type</th>
                           <th className="px-6 py-3 text-left">Amount</th>
                           <th className="px-6 py-3 text-left">Status</th>
@@ -320,8 +322,16 @@ export const FinancialPage: React.FC = () => {
                               {format(new Date(tx.created_at), 'MMM dd, yyyy HH:mm')}
                             </td>
                             <td className="px-6 py-4">
-                              <div className="text-sm font-semibold text-slate-900">{tx.patient_name || 'Unknown'}</div>
-                              {tx.reference && <div className="text-xs text-slate-500">{tx.reference}</div>}
+                              <div className="text-sm font-semibold text-slate-900">
+                                {tx.patient_name || tx.provider_name || 'Unknown'}
+                              </div>
+                              {tx.patient_name && (
+                                <div className="text-xs text-slate-500">Patient</div>
+                              )}
+                              {!tx.patient_name && tx.provider_name && (
+                                <div className="text-xs text-slate-500">Provider</div>
+                              )}
+                              {tx.reference && <div className="text-xs text-slate-500 mt-1">{tx.reference}</div>}
                             </td>
                             <td className="px-6 py-4">
                               <span

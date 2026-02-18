@@ -264,7 +264,7 @@ export interface TransactionRecord {
   id: string;
   patient_id: string;
   patient_name?: string;
-  type: 'topup' | 'payment' | 'refund';
+  type: 'topup' | 'payment' | 'refund' | 'withdrawal';
   amount: number;
   description?: string;
   status: 'completed' | 'pending' | 'failed';

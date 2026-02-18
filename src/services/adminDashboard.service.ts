@@ -859,19 +859,19 @@ class AdminDashboardService {
       const platformRevenue = (appointments || [])
         .reduce((sum, a) => sum + (a.total_cost ? parseFloat(a.total_cost.toString()) * 0.2 : 0), 0);
 
-      // Get pending payouts
-      const { data: payouts, error: payoutError } = await supabase
-        .from('provider_payouts')
+      // Get pending payouts from provider_withdrawals table
+      const { data: withdrawals, error: withdrawalError } = await supabase
+        .from('provider_withdrawals')
         .select('amount')
-        .eq('status', 'pending');
+        .eq('status', 'Pending');
 
-      if (payoutError) {
-        console.error('Payouts error:', payoutError);
-        throw payoutError;
+      if (withdrawalError) {
+        console.error('Withdrawals error:', withdrawalError);
+        throw withdrawalError;
       }
 
-      const pendingPayouts = (payouts || [])
-        .reduce((sum, p) => sum + (p.amount || 0), 0);
+      const pendingPayouts = (withdrawals || [])
+        .reduce((sum, w) => sum + parseFloat(w.amount || '0'), 0);
 
       // Get total top up revenue (all-time)
       const { data: topups, error: topupError } = await supabase
@@ -910,12 +910,13 @@ class AdminDashboardService {
     options: PaginationOptions,
     params?: {
       search?: string;
-      type?: 'topup' | 'payment' | 'refund' | 'all';
+      type?: 'topup' | 'payment' | 'refund' | 'withdrawal' | 'all';
       status?: 'completed' | 'pending' | 'failed' | 'all';
     }
   ): Promise<ListResponse<TransactionRecord> | null> {
     try {
-      let query = supabase
+      // Fetch patient transactions
+      let patientQuery = supabase
         .from('transactions')
         .select(`
           *,
@@ -928,39 +929,84 @@ class AdminDashboardService {
         `, { count: 'exact' });
 
       if (params?.type && params.type !== 'all') {
-        query = query.eq('type', params.type);
+        patientQuery = patientQuery.eq('type', params.type);
       }
 
       if (params?.status && params.status !== 'all') {
-        query = query.eq('status', params.status);
+        patientQuery = patientQuery.eq('status', params.status);
       }
 
       if (params?.search) {
         const safeSearch = sanitizeSearchTerm(params.search);
-
         if (safeSearch) {
-          query = query.or(`reference.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`);
+          patientQuery = patientQuery.or(`reference.ilike.%${safeSearch}%,description.ilike.%${safeSearch}%`);
         }
       }
 
-      const { data, count, error } = await query
-        .order('created_at', { ascending: false })
-        .range(
-          (options.page - 1) * options.pageSize,
-          options.page * options.pageSize - 1
-        );
+      // Fetch provider transaction logs
+      const { data: providerLogs, error: providerError } = await supabase
+        .from('provider_transaction_logs')
+        .select(`
+          *,
+          providers!provider_transaction_logs_provider_id_fkey (
+            name
+          )
+        `)
+        .order('created_at', { ascending: false });
+
+      if (providerError) {
+        console.error('Error fetching provider logs:', providerError);
+      }
+
+      const { data: patientData, error } = await patientQuery
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
 
-      const transactions = (data || []).map((tx: any) => ({
-        ...tx,
+      // Map patient transactions
+      const patientTransactions = (patientData || []).map((tx: any) => ({
+        id: tx.id,
+        patient_id: tx.patient_id,
         patient_name: tx.patients?.name,
+        type: tx.type,
+        amount: parseFloat(tx.amount),
+        description: tx.description,
+        status: tx.status,
+        reference: tx.reference,
+        payment_method: tx.payment_method,
+        provider_id: tx.provider_id,
         provider_name: tx.providers?.name,
+        created_at: tx.created_at,
       })) as TransactionRecord[];
 
+      // Map provider transaction logs to TransactionRecord format
+      const providerTransactions = (providerLogs || []).map((log: any) => ({
+        id: log.id,
+        patient_id: '', // Provider logs don't have patient_id
+        patient_name: undefined,
+        type: log.transaction_type === 'credit' ? 'payment' : log.transaction_type === 'debit' ? 'withdrawal' : 'refund',
+        amount: parseFloat(log.amount),
+        description: log.description || `${log.transaction_type} transaction`,
+        status: 'completed' as const,
+        reference: log.related_withdrawal_id || log.related_appointment_id,
+        payment_method: undefined,
+        provider_id: log.provider_id,
+        provider_name: log.providers?.name,
+        created_at: log.created_at,
+      })) as TransactionRecord[];
+
+      // Merge and sort all transactions by created_at
+      const allTransactions = [...patientTransactions, ...providerTransactions]
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+
+      // Apply pagination to merged results
+      const startIndex = (options.page - 1) * options.pageSize;
+      const endIndex = startIndex + options.pageSize;
+      const paginatedTransactions = allTransactions.slice(startIndex, endIndex);
+
       return {
-        data: transactions,
-        total: count || 0,
+        data: paginatedTransactions,
+        total: allTransactions.length,
         page: options.page,
         pageSize: options.pageSize,
       };
