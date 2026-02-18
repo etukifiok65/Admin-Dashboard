@@ -10,10 +10,12 @@ node_modules/
 # Misc
 .DS_Store
 .env
-.env.production
 .env.local
 .env.*.local
 *.pem
+
+# Note: .env.production contains only public VITE_* variables (anon key)
+# and is committed for Cloudflare Pages builds
 
 # Editor directories and files
 .vscode/*
