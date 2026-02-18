@@ -1075,8 +1075,8 @@ class AdminDashboardService {
       // Call the SECURITY DEFINER function to bypass RLS
       const { data: procedureResult, error: procedureError } = await supabase
         .rpc('mark_withdrawal_as_paid', {
-          withdrawal_id: payoutId,
-          new_status: dbStatus
+          p_withdrawal_id: payoutId,
+          p_new_status: dbStatus
         });
 
       if (procedureError) {

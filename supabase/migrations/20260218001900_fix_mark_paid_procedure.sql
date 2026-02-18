@@ -1,15 +1,14 @@
 -- =====================================================
--- Create Stored Procedure for Mark as Paid
--- Migration: 20260218001800_create_mark_paid_procedure.sql
--- Purpose: Bypass RLS by using SECURITY DEFINER function
+-- Fix Mark as Paid Stored Procedure
+-- Migration: 20260218001900_fix_mark_paid_procedure.sql
+-- Purpose: Fix ambiguous column reference error with proper parameter names
 -- =====================================================
 
--- Create a function that can update withdrawal status
--- This function uses SECURITY DEFINER to run with superuser privileges
--- allowing the anon key to call it even with RLS enabled
+-- Drop the old function
 DROP FUNCTION IF EXISTS public.mark_withdrawal_as_paid(UUID, VARCHAR);
 
-CREATE OR REPLACE FUNCTION public.mark_withdrawal_as_paid(
+-- Create the corrected function
+CREATE FUNCTION public.mark_withdrawal_as_paid(
   p_withdrawal_id UUID,
   p_new_status VARCHAR DEFAULT 'Paid'
 )
@@ -56,8 +55,4 @@ END;
 $$;
 
 -- Grant execute permission to anon and authenticated roles
-GRANT EXECUTE ON FUNCTION public.mark_withdrawal_as_paid(UUID, VARCHAR) TO anon, authenticated;
-
--- Also allow calling it from public
-REVOKE EXECUTE ON FUNCTION public.mark_withdrawal_as_paid(UUID, VARCHAR) FROM public;
 GRANT EXECUTE ON FUNCTION public.mark_withdrawal_as_paid(UUID, VARCHAR) TO anon, authenticated;
