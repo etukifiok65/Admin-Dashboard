@@ -1504,6 +1504,26 @@ class AdminDashboardService {
       const { data, error } = await supabase.functions.invoke('list-admin-users');
 
       if (error) {
+        // Try to read the response body for more details
+        let responseBody = null;
+        if (error.context instanceof Response) {
+          try {
+            responseBody = await error.context.clone().json();
+            console.error('Edge Function response body:', responseBody);
+          } catch (e) {
+            console.error('Could not parse response body');
+          }
+        }
+
+        console.error('Edge Function error details:', {
+          message: error.message,
+          status: error.context?.status,
+          responseBody,
+          context: error.context,
+          name: error.name,
+          fullError: error,
+        });
+
         const message = error.message?.toLowerCase() || '';
 
         if (message.includes('403') || message.includes('forbidden') || message.includes('origin')) {
@@ -1522,6 +1542,9 @@ class AdminDashboardService {
       }
 
       if (!data) return [];
+      
+      console.log('Edge Function response data:', data);
+      
       if (data.error) throw new Error(data.error);
 
       return data as AdminUserSettings[];
