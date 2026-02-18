@@ -17,35 +17,75 @@ interface AdminCheckResponse {
   error?: string;
 }
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
+const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
+  .split(',')
+  .map((origin: string) => origin.trim())
+  .filter(Boolean);
+
+const hasExplicitAllowedOrigins = allowedOrigins.length > 0;
+
+const defaultAllowedOrigins = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+];
+
+const resolvedAllowedOrigins = hasExplicitAllowedOrigins ? allowedOrigins : defaultAllowedOrigins;
+
+const baseCorsHeaders = {
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
+const getCorsHeaders = (origin: string | null) => {
+  if (!hasExplicitAllowedOrigins && origin) {
+    return {
+      ...baseCorsHeaders,
+      'Access-Control-Allow-Origin': origin,
+      Vary: 'Origin',
+    };
+  }
+
+  if (origin && resolvedAllowedOrigins.includes(origin)) {
+    return {
+      ...baseCorsHeaders,
+      'Access-Control-Allow-Origin': origin,
+      Vary: 'Origin',
+    };
+  }
+
+  return baseCorsHeaders;
+};
+
+const jsonResponse = (body: Record<string, unknown>, status: number, origin: string | null) =>
+  new Response(JSON.stringify(body), {
+    status,
+    headers: { ...getCorsHeaders(origin), 'Content-Type': 'application/json' },
+  });
+
 serve(async (req: Request): Promise<Response> => {
+  const origin = req.headers.get('Origin');
+  const originAllowed = !hasExplicitAllowedOrigins || !origin || resolvedAllowedOrigins.includes(origin);
+
+  if (!originAllowed) {
+    return jsonResponse({ error: 'Origin not allowed' }, 403, origin);
+  }
+
   // Handle CORS preflight
   if (req.method === "OPTIONS") {
-    return new Response(null, { headers: corsHeaders, status: 204 });
+    return new Response(null, { headers: getCorsHeaders(origin), status: 204 });
   }
 
   try {
     const authHeader = req.headers.get("authorization");
     if (!authHeader) {
-      return new Response(
-        JSON.stringify({ error: "Missing authorization header" } as ErrorResponse),
-        { headers: corsHeaders, status: 401 }
-      );
+      return jsonResponse({ error: "Missing authorization header" }, 401, origin);
     }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL");
-    const serviceRoleKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
+    const serviceRoleKey = Deno.env.get('SERVICE_ROLE_KEY') ?? Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
 
     if (!supabaseUrl || !serviceRoleKey) {
-      return new Response(
-        JSON.stringify({ error: "Missing Supabase credentials" } as ErrorResponse),
-        { headers: corsHeaders, status: 500 }
-      );
+      return jsonResponse({ error: "Missing Supabase credentials" }, 500, origin);
     }
 
     const supabase = createClient(supabaseUrl, serviceRoleKey);
@@ -55,13 +95,10 @@ serve(async (req: Request): Promise<Response> => {
     const { data: userData, error: userError } = await supabase.auth.getUser(token);
 
     if (userError || !userData.user) {
-      return new Response(
-        JSON.stringify({
+      return jsonResponse({
           authenticated: false,
           error: userError?.message || "User not found",
-        } as AdminCheckResponse),
-        { headers: corsHeaders, status: 401 }
-      );
+        }, 401, origin);
     }
 
     // Query admin_users table with service role (bypasses RLS)
@@ -88,16 +125,10 @@ serve(async (req: Request): Promise<Response> => {
       response.error = `Database error: ${adminError.message}`;
     }
 
-    return new Response(JSON.stringify(response), {
-      headers: { ...corsHeaders, "Content-Type": "application/json" },
-      status: 200,
-    });
+    return jsonResponse(response as Record<string, unknown>, 200, origin);
   } catch (error) {
-    return new Response(
-      JSON.stringify({
+    return jsonResponse({
         error: error instanceof Error ? error.message : String(error),
-      } as ErrorResponse),
-      { headers: corsHeaders, status: 500 }
-    );
+      }, 500, origin);
   }
 });

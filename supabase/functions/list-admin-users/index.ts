@@ -8,12 +8,14 @@ const allowedOrigins = (Deno.env.get('ALLOWED_ORIGINS') ?? '')
   .map((origin: string) => origin.trim())
   .filter(Boolean);
 
+const hasExplicitAllowedOrigins = allowedOrigins.length > 0;
+
 const defaultAllowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
 ];
 
-const resolvedAllowedOrigins = allowedOrigins.length > 0 ? allowedOrigins : defaultAllowedOrigins;
+const resolvedAllowedOrigins = hasExplicitAllowedOrigins ? allowedOrigins : defaultAllowedOrigins;
 
 const baseCorsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
@@ -21,6 +23,14 @@ const baseCorsHeaders = {
 };
 
 const getCorsHeaders = (origin: string | null) => {
+  if (!hasExplicitAllowedOrigins && origin) {
+    return {
+      ...baseCorsHeaders,
+      'Access-Control-Allow-Origin': origin,
+      Vary: 'Origin',
+    };
+  }
+
   if (origin && resolvedAllowedOrigins.includes(origin)) {
     return {
       ...baseCorsHeaders,
@@ -40,7 +50,7 @@ const jsonResponse = (body: Record<string, unknown>, status: number, origin: str
 
 serve(async (req: Request) => {
   const origin = req.headers.get('Origin');
-  const originAllowed = !origin || resolvedAllowedOrigins.includes(origin);
+  const originAllowed = !hasExplicitAllowedOrigins || !origin || resolvedAllowedOrigins.includes(origin);
 
   if (!originAllowed) {
     return jsonResponse({ error: 'Origin not allowed' }, 403, origin);

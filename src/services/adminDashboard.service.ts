@@ -1503,14 +1503,36 @@ class AdminDashboardService {
     try {
       const { data, error } = await supabase.functions.invoke('list-admin-users');
 
-      if (error) throw error;
+      if (error) {
+        const message = error.message?.toLowerCase() || '';
+
+        if (message.includes('403') || message.includes('forbidden') || message.includes('origin')) {
+          throw new Error('Admin users request blocked. Configure Edge Function ALLOWED_ORIGINS to include your frontend domain.');
+        }
+
+        if (message.includes('404') || message.includes('not found')) {
+          throw new Error('Admin users function not found. Deploy Supabase Edge Function: list-admin-users.');
+        }
+
+        if (message.includes('500') || message.includes('server misconfiguration')) {
+          throw new Error('Admin users function misconfigured. Set SERVICE_ROLE_KEY in Supabase Edge Function secrets.');
+        }
+
+        throw new Error(error.message || 'Failed to fetch admin users');
+      }
+
       if (!data) return [];
       if (data.error) throw new Error(data.error);
 
       return data as AdminUserSettings[];
     } catch (error) {
       console.error('Error fetching admin users:', error);
-      return null;
+
+      if (error instanceof Error) {
+        throw error;
+      }
+
+      throw new Error('Failed to fetch admin users');
     }
   }
 
