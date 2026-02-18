@@ -1687,6 +1687,242 @@ class AdminDashboardService {
       return null;
     }
   }
+
+  // ===== BROADCAST NOTIFICATIONS =====
+
+  async getBroadcastNotifications(
+    options: PaginationOptions,
+    params?: { status?: 'draft' | 'scheduled' | 'sent' | 'all' }
+  ): Promise<ListResponse<any> | null> {
+    try {
+      let query = supabase
+        .from('broadcast_notifications')
+        .select('*', { count: 'exact' });
+
+      if (params?.status && params.status !== 'all') {
+        query = query.eq('status', params.status);
+      }
+
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(
+          (options.page - 1) * options.pageSize,
+          options.page * options.pageSize - 1
+        );
+
+      if (error) throw error;
+
+      return {
+        data: data || [],
+        total: count || 0,
+        page: options.page,
+        pageSize: options.pageSize,
+      };
+    } catch (error) {
+      console.error('Error fetching broadcast notifications:', error);
+      return null;
+    }
+  }
+
+  async createBroadcastNotification(
+    data: any,
+    options?: { saveAsDraft?: boolean }
+  ): Promise<any | null> {
+    try {
+      if (options?.saveAsDraft) {
+        const { data: draftNotification, error: draftError } = await supabase
+          .from('broadcast_notifications')
+          .insert({
+            title: data.title,
+            message: data.message,
+            recipient_type: data.recipient_type,
+            status: 'draft',
+            scheduled_at: data.scheduled_at || null,
+          })
+          .select('*')
+          .single();
+
+        if (draftError) {
+          console.error('Error creating draft notification:', draftError);
+          throw draftError;
+        }
+
+        return draftNotification;
+      }
+
+      const requestTime = new Date().toISOString();
+      const { data: notificationId, error } = await supabase.rpc(
+        'create_broadcast_notification_v2',
+        {
+          p_title: data.title,
+          p_message: data.message,
+          p_recipient_type: data.recipient_type,
+          p_scheduled_at: data.scheduled_at || null,
+        }
+      );
+
+      if (error) {
+        console.error('RPC error details:', error);
+        throw error;
+      }
+
+      let createdNotificationId: string | null = null;
+
+      if (typeof notificationId === 'string') {
+        createdNotificationId = notificationId;
+      } else if (Array.isArray(notificationId)) {
+        const firstItem = notificationId[0] as
+          | string
+          | { id?: string; create_broadcast_notification_v2?: string }
+          | undefined;
+
+        if (typeof firstItem === 'string') {
+          createdNotificationId = firstItem;
+        } else if (firstItem?.id) {
+          createdNotificationId = firstItem.id;
+        } else if (firstItem?.create_broadcast_notification_v2) {
+          createdNotificationId = firstItem.create_broadcast_notification_v2;
+        }
+      } else if (notificationId && typeof notificationId === 'object') {
+        const payload = notificationId as {
+          id?: string;
+          create_broadcast_notification_v2?: string;
+        };
+
+        if (payload.id) {
+          createdNotificationId = payload.id;
+        } else if (payload.create_broadcast_notification_v2) {
+          createdNotificationId = payload.create_broadcast_notification_v2;
+        }
+      }
+
+      if (!createdNotificationId) {
+        const { data: fallbackRows, error: fallbackError } = await supabase
+          .from('broadcast_notifications')
+          .select('*')
+          .eq('title', data.title)
+          .eq('message', data.message)
+          .eq('recipient_type', data.recipient_type)
+          .gte('created_at', requestTime)
+          .order('created_at', { ascending: false })
+          .limit(1);
+
+        if (fallbackError) {
+          console.error('Fallback lookup failed:', fallbackError);
+          throw fallbackError;
+        }
+
+        return fallbackRows?.[0] ?? null;
+      }
+
+      const { data: createdNotification, error: fetchError } = await supabase
+        .from('broadcast_notifications')
+        .select('*')
+        .eq('id', createdNotificationId)
+        .single();
+
+      if (fetchError) {
+        console.error('Error fetching created notification:', fetchError);
+        throw fetchError;
+      }
+
+      return createdNotification;
+    } catch (error) {
+      console.error('Error creating broadcast notification:', error);
+      throw error;
+    }
+  }
+
+  async updateBroadcastNotificationDraft(
+    notificationId: string,
+    data: {
+      title: string;
+      message: string;
+      recipient_type: 'patients' | 'providers' | 'both';
+      scheduled_at?: string | null;
+    }
+  ): Promise<any | null> {
+    try {
+      const { data: updatedNotification, error } = await supabase
+        .from('broadcast_notifications')
+        .update({
+          title: data.title,
+          message: data.message,
+          recipient_type: data.recipient_type,
+          scheduled_at: data.scheduled_at || null,
+        })
+        .eq('id', notificationId)
+        .eq('status', 'draft')
+        .select('*')
+        .single();
+
+      if (error) throw error;
+      return updatedNotification;
+    } catch (error) {
+      console.error('Error updating draft notification:', error);
+      throw error;
+    }
+  }
+
+  async sendBroadcastNotificationNow(notificationId: string): Promise<any | null> {
+    try {
+      const { data: result, error } = await supabase.rpc(
+        'send_broadcast_notification_now',
+        { p_notification_id: notificationId }
+      );
+
+      if (error) {
+        console.error('Error sending notification now:', error);
+        throw error;
+      }
+
+      const parsedNotificationId = Array.isArray(result)
+        ? (result[0] as { send_broadcast_notification_now?: string } | undefined)
+            ?.send_broadcast_notification_now ?? null
+        : typeof result === 'string'
+          ? result
+          : result && typeof result === 'object' && 'send_broadcast_notification_now' in result
+            ? String((result as { send_broadcast_notification_now: unknown }).send_broadcast_notification_now)
+            : null;
+
+      const resolvedNotificationId = parsedNotificationId || notificationId;
+
+      const { data: updatedNotification, error: fetchError } = await supabase
+        .from('broadcast_notifications')
+        .select('*')
+        .eq('id', resolvedNotificationId)
+        .single();
+
+      if (fetchError) throw fetchError;
+      return updatedNotification;
+    } catch (error) {
+      console.error('Error in sendBroadcastNotificationNow:', error);
+      throw error;
+    }
+  }
+
+  async updateBroadcastNotificationStatus(
+    notificationId: string,
+    status: 'draft' | 'scheduled' | 'sent'
+  ): Promise<any | null> {
+    try {
+      const { data, error } = await supabase
+        .from('broadcast_notifications')
+        .update({
+          status,
+          sent_at: status === 'sent' ? new Date().toISOString() : null,
+        })
+        .eq('id', notificationId)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating notification status:', error);
+      throw error;
+    }
+  }
 }
 
 export const adminDashboardService = new AdminDashboardService();

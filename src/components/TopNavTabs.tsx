@@ -14,6 +14,7 @@ const tabs: TabItem[] = [
   { label: 'Appointments', path: '/appointments' },
   { label: 'Financial', path: '/financial' },
   { label: 'Analytics', path: '/analytics' },
+  { label: 'Notifications', path: '/notifications' },
   { label: 'Settings', path: '/settings' },
 ];
 

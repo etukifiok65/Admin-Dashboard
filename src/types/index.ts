@@ -366,3 +366,36 @@ export interface AppointmentStatusConfig {
   updatedAt: string;
 }
 
+// Broadcast Notifications
+export interface BroadcastNotification {
+  id: string;
+  title: string;
+  message: string;
+  recipient_type: 'patients' | 'providers' | 'both';
+  status: 'draft' | 'scheduled' | 'sent';
+  scheduled_at?: string;
+  sent_at?: string;
+  created_by: string;
+  created_at: string;
+  updated_at: string;
+  total_recipients?: number;
+  delivered_count?: number;
+  read_count?: number;
+}
+
+export interface BroadcastNotificationRecipient {
+  id: string;
+  broadcast_notification_id: string;
+  patient_id?: string;
+  provider_id?: string;
+  read: boolean;
+  read_at?: string;
+  created_at: string;
+}
+
+export interface CreateBroadcastNotificationRequest {
+  title: string;
+  message: string;
+  recipient_type: 'patients' | 'providers' | 'both';
+  scheduled_at?: string;
+}
