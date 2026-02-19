@@ -23,6 +23,7 @@ import type {
   PlatformConfiguration,
   ServiceTypeConfig,
   AppointmentStatusConfig,
+  AuditLog,
 } from '@app-types/index';
 
 const SEARCH_INPUT_MAX_LENGTH = 80;
@@ -1652,6 +1653,48 @@ class AdminDashboardService {
     } catch (error) {
       console.error('Error toggling admin status:', error);
       return false;
+    }
+  }
+
+  /**
+   * Get admin user activity audit logs
+   */
+  async getAdminAuditLogs(limit: number = 100): Promise<AuditLog[] | null> {
+    try {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select(`
+          *,
+          admin_user:admin_users!audit_logs_user_id_fkey(
+            name,
+            email,
+            role
+          )
+        `)
+        .eq('table_name', 'admin_users')
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+      if (error) throw error;
+
+      return (data || []).map((log: any) => ({
+        id: log.id,
+        table_name: log.table_name,
+        operation: log.operation,
+        record_id: log.record_id,
+        user_id: log.user_id,
+        old_data: log.old_data,
+        new_data: log.new_data,
+        created_at: log.created_at,
+        admin_user: log.admin_user ? {
+          name: log.admin_user.name,
+          email: log.admin_user.email,
+          role: log.admin_user.role,
+        } : undefined,
+      }));
+    } catch (error) {
+      console.error('Error fetching admin audit logs:', error);
+      return null;
     }
   }
 

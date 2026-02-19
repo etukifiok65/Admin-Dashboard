@@ -399,3 +399,20 @@ export interface CreateBroadcastNotificationRequest {
   recipient_type: 'patients' | 'providers' | 'both';
   scheduled_at?: string;
 }
+
+// Audit Log type
+export interface AuditLog {
+  id: string;
+  table_name: string;
+  operation: 'INSERT' | 'UPDATE' | 'DELETE';
+  record_id: string;
+  user_id: string;
+  old_data?: Record<string, any>;
+  new_data?: Record<string, any>;
+  created_at: string;
+  admin_user?: {
+    name: string;
+    email: string;
+    role: string;
+  };
+}
