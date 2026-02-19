@@ -2020,6 +2020,27 @@ class AdminDashboardService {
     }
   }
 
+  async processScheduledBroadcastNotifications(): Promise<number> {
+    try {
+      const { data, error } = await supabase.rpc('process_scheduled_broadcast_notifications');
+
+      if (error) throw error;
+
+      if (typeof data === 'number') {
+        return data;
+      }
+
+      if (Array.isArray(data) && typeof data[0] === 'number') {
+        return data[0];
+      }
+
+      return 0;
+    } catch (error) {
+      console.error('Error processing scheduled notifications:', error);
+      throw error;
+    }
+  }
+
   async updateBroadcastNotificationStatus(
     notificationId: string,
     status: 'draft' | 'scheduled' | 'sent'

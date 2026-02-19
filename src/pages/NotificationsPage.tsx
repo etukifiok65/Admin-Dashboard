@@ -36,6 +36,7 @@ export const NotificationsPage: React.FC = () => {
     scheduled_at: '',
   });
   const [isCreating, setIsCreating] = useState(false);
+  const [isProcessingScheduled, setIsProcessingScheduled] = useState(false);
   const [activeDraftAction, setActiveDraftAction] = useState<'save' | 'send' | null>(null);
   const [actionNotificationId, setActionNotificationId] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -204,6 +205,25 @@ export const NotificationsPage: React.FC = () => {
     }
   };
 
+  const handleProcessScheduled = async () => {
+    setIsProcessingScheduled(true);
+    setError(null);
+
+    try {
+      const processedCount = await adminDashboardService.processScheduledBroadcastNotifications();
+      await fetchNotifications();
+
+      if (processedCount === 0) {
+        setError('No due scheduled notifications found at this time.');
+      }
+    } catch (err) {
+      const message = normalizeErrorMessage(err, 'Failed to process scheduled notifications');
+      setError(message);
+    } finally {
+      setIsProcessingScheduled(false);
+    }
+  };
+
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
   return (
@@ -358,6 +378,13 @@ export const NotificationsPage: React.FC = () => {
 
         {/* Status Filter */}
         <div className="flex gap-2">
+          <button
+            onClick={handleProcessScheduled}
+            disabled={isProcessingScheduled}
+            className="px-4 py-2 text-sm font-medium rounded-lg border transition bg-white text-slate-700 border-slate-300 hover:border-slate-400 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            {isProcessingScheduled ? 'Processing...' : 'Process Scheduled'}
+          </button>
           {[
             { value: 'all' as const, label: 'All' },
             { value: 'draft' as const, label: 'Draft' },
