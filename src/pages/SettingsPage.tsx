@@ -13,6 +13,7 @@ export const SettingsPage: React.FC = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [activeTab, setActiveTab] = useState<'admin' | 'platform' | 'services' | 'statuses' | 'audit'>('admin');
+  const [auditFilter, setAuditFilter] = useState<'all' | 'admin_users' | 'patients' | 'providers'>('all');
 
   // Modal states
   const [isAddAdminModalOpen, setIsAddAdminModalOpen] = useState(false);
@@ -29,7 +30,7 @@ export const SettingsPage: React.FC = () => {
         const [admins, types, logs] = await Promise.all([
           adminDashboardService.getAdminUsers(),
           adminDashboardService.getServiceTypes(),
-          adminDashboardService.getAdminAuditLogs(50),
+          adminDashboardService.getAdminAuditLogs(100, auditFilter === 'all' ? undefined : auditFilter),
         ]);
 
         if (admins) setAdminUsers(admins);
@@ -45,14 +46,14 @@ export const SettingsPage: React.FC = () => {
     };
 
     fetchSettings();
-  }, []);
+  }, [auditFilter]);
 
   const refreshData = async () => {
     try {
       const [admins, types, logs] = await Promise.all([
         adminDashboardService.getAdminUsers(),
         adminDashboardService.getServiceTypes(),
-        adminDashboardService.getAdminAuditLogs(50),
+        adminDashboardService.getAdminAuditLogs(100, auditFilter === 'all' ? undefined : auditFilter),
       ]);
       if (admins) setAdminUsers(admins);
       if (types) setServiceTypes(types);
@@ -229,8 +230,8 @@ export const SettingsPage: React.FC = () => {
           <div className="rounded-lg border border-slate-200 bg-white/90 p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <div>
-                <h2 className="text-lg font-semibold text-slate-900">Admin Activity Audit Trail</h2>
-                <p className="text-sm text-slate-500 mt-1">Track all admin user activities and changes</p>
+                <h2 className="text-lg font-semibold text-slate-900">System Activity Audit Trail</h2>
+                <p className="text-sm text-slate-500 mt-1">Track all system activities and changes</p>
               </div>
               <button 
                 onClick={refreshData}
@@ -240,74 +241,134 @@ export const SettingsPage: React.FC = () => {
               </button>
             </div>
 
+            {/* Filter Tabs */}
+            <div className="flex gap-2 mb-6 border-b border-slate-200">
+              {[
+                { id: 'all', label: 'All Activities' },
+                { id: 'admin_users', label: 'Admin Users' },
+                { id: 'patients', label: 'Patients' },
+                { id: 'providers', label: 'Providers' },
+              ].map(filter => (
+                <button
+                  key={filter.id}
+                  onClick={() => setAuditFilter(filter.id as any)}
+                  className={`px-4 py-2 font-semibold text-sm transition ${
+                    auditFilter === filter.id
+                      ? 'border-b-2 border-brand-600 text-brand-600'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  {filter.label}
+                </button>
+              ))}
+            </div>
+
             {auditLogs.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-slate-500">No audit logs found</p>
+                <p className="text-sm text-slate-400 mt-1">
+                  {auditFilter === 'all' ? 'Activity will appear here once changes are made' : `No ${auditFilter.replace('_', ' ')} activities recorded yet`}
+                </p>
               </div>
             ) : (
               <div className="space-y-3">
-                {auditLogs.map((log) => (
-                  <div 
-                    key={log.id} 
-                    className="rounded-lg border border-slate-200 p-4 hover:border-slate-300 transition"
-                  >
-                    <div className="flex items-start justify-between mb-2">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${
-                            log.operation === 'INSERT'
-                              ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
-                              : log.operation === 'UPDATE'
-                              ? 'border-blue-200 bg-blue-50 text-blue-700'
-                              : 'border-red-200 bg-red-50 text-red-700'
-                          }`}>
-                            {log.operation}
-                          </span>
-                          <span className="text-sm font-semibold text-slate-900">
-                            {log.admin_user?.name || 'System'}
-                          </span>
-                          <span className="text-xs text-slate-500">
-                            ({log.admin_user?.email})
-                          </span>
+                {auditLogs.map((log) => {
+                  const getEntityDescription = () => {
+                    if (log.table_name === 'admin_users') {
+                      if (log.operation === 'INSERT') return 'Created a new admin user';
+                      if (log.operation === 'UPDATE') return 'Updated admin user settings';
+                      if (log.operation === 'DELETE') return 'Deleted an admin user';
+                    }
+                    if (log.table_name === 'patients') {
+                      if (log.operation === 'INSERT') return 'Registered a new patient';
+                      if (log.operation === 'UPDATE') return 'Updated patient information';
+                      if (log.operation === 'DELETE') return 'Deleted a patient';
+                    }
+                    if (log.table_name === 'providers') {
+                      if (log.operation === 'INSERT') return 'Registered a new provider';
+                      if (log.operation === 'UPDATE') return 'Updated provider information';
+                      if (log.operation === 'DELETE') return 'Deleted a provider';
+                    }
+                    return `${log.operation} on ${log.table_name}`;
+                  };
+
+                  return (
+                    <div 
+                      key={log.id} 
+                      className="rounded-lg border border-slate-200 p-4 hover:border-slate-300 transition"
+                    >
+                      <div className="flex items-start justify-between mb-2">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                              log.operation === 'INSERT'
+                                ? 'border-emerald-200 bg-emerald-50 text-emerald-700'
+                                : log.operation === 'UPDATE'
+                                ? 'border-blue-200 bg-blue-50 text-blue-700'
+                                : 'border-red-200 bg-red-50 text-red-700'
+                            }`}>
+                              {log.operation}
+                            </span>
+                            <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2 py-0.5 text-xs font-semibold text-slate-600 capitalize">
+                              {log.table_name.replace('_', ' ')}
+                            </span>
+                            <span className="text-sm font-semibold text-slate-900">
+                              {log.admin_user?.name || 'System'}
+                            </span>
+                            {log.admin_user && (
+                              <span className="text-xs text-slate-500">
+                                ({log.admin_user.email})
+                              </span>
+                            )}
+                          </div>
+                          
+                          <p className="text-sm text-slate-600 mb-2">
+                            {getEntityDescription()}
+                          </p>
+
+                          {log.new_data && (log.operation === 'INSERT' || log.operation === 'UPDATE') && (
+                            <div className="text-xs text-slate-500 bg-slate-50 rounded p-2 mt-2">
+                              {log.operation === 'INSERT' && (
+                                <>
+                                  <strong>New Record:</strong> {log.new_data.name || log.new_data.email || 'Record created'}
+                                  {log.new_data.email && ` (${log.new_data.email})`}
+                                  {log.new_data.role && ` - Role: ${log.new_data.role}`}
+                                  {log.new_data.verification_status && ` - Status: ${log.new_data.verification_status}`}
+                                </>
+                              )}
+                              {log.operation === 'UPDATE' && log.old_data && (
+                                <div className="space-y-1">
+                                  {Object.keys(log.new_data).filter(key => 
+                                    log.old_data![key] !== log.new_data![key] && 
+                                    !['updated_at', 'last_login_at', 'id', 'auth_id', 'created_at'].includes(key)
+                                  ).map(key => (
+                                    <div key={key}>
+                                      <strong className="capitalize">{key.replace(/_/g, ' ')}:</strong>{' '}
+                                      <span className="line-through text-red-600">{String(log.old_data![key] ?? 'null')}</span>
+                                      {' → '}
+                                      <span className="text-emerald-600">{String(log.new_data![key] ?? 'null')}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          {log.old_data && log.operation === 'DELETE' && (
+                            <div className="text-xs text-slate-500 bg-red-50 rounded p-2 mt-2">
+                              <strong>Deleted:</strong> {log.old_data.name || log.old_data.email || 'Record'}
+                              {log.old_data.email && ` (${log.old_data.email})`}
+                            </div>
+                          )}
                         </div>
-                        
-                        <p className="text-sm text-slate-600 mb-2">
-                          {log.operation === 'INSERT' && 'Created a new admin user'}
-                          {log.operation === 'UPDATE' && 'Updated admin user settings'}
-                          {log.operation === 'DELETE' && 'Deleted an admin user'}
-                        </p>
 
-                        {log.new_data && log.operation === 'INSERT' && (
-                          <div className="text-xs text-slate-500 bg-slate-50 rounded p-2 mt-2">
-                            <strong>New Admin:</strong> {log.new_data.name} ({log.new_data.email}) - Role: {log.new_data.role}
-                          </div>
-                        )}
-
-                        {log.old_data && log.new_data && log.operation === 'UPDATE' && (
-                          <div className="text-xs text-slate-500 bg-slate-50 rounded p-2 mt-2 space-y-1">
-                            {Object.keys(log.new_data).map(key => {
-                              if (log.old_data![key] !== log.new_data![key]) {
-                                return (
-                                  <div key={key}>
-                                    <strong className="capitalize">{key.replace('_', ' ')}:</strong>{' '}
-                                    <span className="line-through text-red-600">{String(log.old_data![key])}</span>
-                                    {' → '}
-                                    <span className="text-emerald-600">{String(log.new_data![key])}</span>
-                                  </div>
-                                );
-                              }
-                              return null;
-                            })}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="text-right text-xs text-slate-400">
-                        {new Date(log.created_at).toLocaleString()}
+                        <div className="text-right text-xs text-slate-400">
+                          {new Date(log.created_at).toLocaleString()}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>

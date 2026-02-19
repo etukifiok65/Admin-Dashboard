@@ -1659,25 +1659,45 @@ class AdminDashboardService {
   /**
    * Get admin user activity audit logs
    */
-  async getAdminAuditLogs(limit: number = 100): Promise<AuditLog[] | null> {
+  async getAdminAuditLogs(limit: number = 100, tableFilter?: string): Promise<AuditLog[] | null> {
     try {
-      const { data, error } = await supabase
+      // Build query
+      let query = supabase
         .from('audit_logs')
-        .select(`
-          *,
-          admin_user:admin_users!audit_logs_user_id_fkey(
-            name,
-            email,
-            role
-          )
-        `)
-        .eq('table_name', 'admin_users')
+        .select('*')
         .order('created_at', { ascending: false })
         .limit(limit);
 
-      if (error) throw error;
+      // Apply table filter if provided
+      if (tableFilter) {
+        query = query.eq('table_name', tableFilter);
+      }
 
-      return (data || []).map((log: any) => ({
+      const { data: logs, error: logsError } = await query;
+
+      if (logsError) throw logsError;
+      if (!logs || logs.length === 0) return [];
+
+      // Get unique user IDs from logs
+      const userIds = [...new Set(logs.map(log => log.user_id).filter(Boolean))];
+
+      // Fetch admin users for those auth IDs
+      const { data: adminUsers, error: adminError } = await supabase
+        .from('admin_users')
+        .select('auth_id, name, email, role')
+        .in('auth_id', userIds);
+
+      if (adminError) {
+        console.warn('Could not fetch admin users for audit logs:', adminError);
+      }
+
+      // Create a map of auth_id to admin user
+      const adminUserMap = new Map(
+        (adminUsers || []).map(user => [user.auth_id, user])
+      );
+
+      // Merge admin user data with audit logs
+      return logs.map((log: any) => ({
         id: log.id,
         table_name: log.table_name,
         operation: log.operation,
@@ -1686,11 +1706,7 @@ class AdminDashboardService {
         old_data: log.old_data,
         new_data: log.new_data,
         created_at: log.created_at,
-        admin_user: log.admin_user ? {
-          name: log.admin_user.name,
-          email: log.admin_user.email,
-          role: log.admin_user.role,
-        } : undefined,
+        admin_user: log.user_id ? adminUserMap.get(log.user_id) : undefined,
       }));
     } catch (error) {
       console.error('Error fetching admin audit logs:', error);
