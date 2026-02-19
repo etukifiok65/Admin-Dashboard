@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import type { BroadcastNotification, PaginationOptions } from '@app-types/index';
 import { adminDashboardService } from '@services/adminDashboard.service';
 import { DashboardLayout } from '@components/DashboardLayout';
+import ConfirmModal from '@components/ConfirmModal';
 import { format } from 'date-fns';
 
 const ITEMS_PER_PAGE = 10;
@@ -40,6 +41,7 @@ export const NotificationsPage: React.FC = () => {
   const [activeDraftAction, setActiveDraftAction] = useState<'save' | 'send' | null>(null);
   const [actionNotificationId, setActionNotificationId] = useState<string | null>(null);
   const [deletingNotificationId, setDeletingNotificationId] = useState<string | null>(null);
+  const [pendingDeleteNotification, setPendingDeleteNotification] = useState<BroadcastNotification | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -226,20 +228,24 @@ export const NotificationsPage: React.FC = () => {
   };
 
   const handleDeleteDraft = async (notification: BroadcastNotification) => {
-    const shouldDelete = window.confirm('Delete this draft notification? This action cannot be undone.');
-    if (!shouldDelete) return;
+    setPendingDeleteNotification(notification);
+  };
 
-    setDeletingNotificationId(notification.id);
+  const handleConfirmDeleteDraft = async () => {
+    if (!pendingDeleteNotification) return;
+
+    setDeletingNotificationId(pendingDeleteNotification.id);
     setCreateError(null);
     setError(null);
 
     try {
-      await adminDashboardService.deleteBroadcastNotificationDraft(notification.id);
+      await adminDashboardService.deleteBroadcastNotificationDraft(pendingDeleteNotification.id);
       await fetchNotifications();
 
-      if (editingNotificationId === notification.id) {
+      if (editingNotificationId === pendingDeleteNotification.id) {
         resetFormState();
       }
+      setPendingDeleteNotification(null);
     } catch (err) {
       const message = normalizeErrorMessage(err, 'Failed to delete draft notification');
       setCreateError(message);
@@ -575,6 +581,17 @@ export const NotificationsPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      <ConfirmModal
+        isOpen={!!pendingDeleteNotification}
+        title="Delete Draft Notification"
+        message="Are you sure you want to delete this draft notification? This action cannot be undone."
+        confirmText="Delete Draft"
+        cancelText="Cancel"
+        onConfirm={handleConfirmDeleteDraft}
+        onCancel={() => setPendingDeleteNotification(null)}
+        isLoading={!!pendingDeleteNotification && deletingNotificationId === pendingDeleteNotification.id}
+      />
     </DashboardLayout>
   );
 };
