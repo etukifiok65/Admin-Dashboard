@@ -1110,14 +1110,10 @@ class AdminDashboardService {
     status: 'pending' | 'processing' | 'completed' | 'failed'
   ): Promise<ProviderPayout | null> {
     try {
-      console.log('📝 updatePayoutStatus called:', { payoutId, status });
-      
       // Map status from API format to database format
       const dbStatus = status === 'completed' ? 'Paid' : 
                        status === 'pending' ? 'Pending' :
                        status === 'processing' ? 'Pending' : 'Pending';
-
-      console.log('📝 Calling stored procedure with:', { payoutId, dbStatus });
 
       // Call the SECURITY DEFINER function to bypass RLS
       const { data: procedureResult, error: procedureError } = await supabase
@@ -1130,8 +1126,6 @@ class AdminDashboardService {
         console.error('❌ Error calling stored procedure:', procedureError);
         throw procedureError;
       }
-
-      console.log('✅ Stored procedure returned:', procedureResult);
 
       if (!procedureResult || procedureResult.length === 0) {
         console.error('❌ No data returned from procedure');
@@ -1170,8 +1164,6 @@ class AdminDashboardService {
         throw fetchError;
       }
 
-      console.log('✅ Full withdrawal data fetched:', fullData);
-
       const payout: ProviderPayout = {
         id: fullData.id,
         provider_id: fullData.provider_id,
@@ -1185,8 +1177,6 @@ class AdminDashboardService {
         created_at: fullData.requested_at,
         completed_at: fullData.processed_at,
       };
-
-      console.log('✅ Payout object created:', payout);
       return payout;
     } catch (error) {
       console.error('❌ Error updating withdrawal status:', error);
@@ -1505,37 +1495,18 @@ class AdminDashboardService {
       const { data, error } = await supabase.functions.invoke('list-admin-users');
 
       if (error) {
-        // Try to read the response body for more details
-        let responseBody = null;
-        if (error.context instanceof Response) {
-          try {
-            responseBody = await error.context.clone().json();
-            console.error('Edge Function response body:', responseBody);
-          } catch (e) {
-            console.error('Could not parse response body');
-          }
-        }
-
-        console.error('Edge Function error details:', {
-          message: error.message,
-          status: error.context?.status,
-          responseBody,
-          context: error.context,
-          name: error.name,
-          fullError: error,
-        });
-
+        const status = error.context?.status;
         const message = error.message?.toLowerCase() || '';
 
-        if (message.includes('403') || message.includes('forbidden') || message.includes('origin')) {
+        if (status === 403 || message.includes('403') || message.includes('forbidden') || message.includes('origin')) {
           throw new Error('Admin users request blocked. Configure Edge Function ALLOWED_ORIGINS to include your frontend domain.');
         }
 
-        if (message.includes('404') || message.includes('not found')) {
+        if (status === 404 || message.includes('404') || message.includes('not found')) {
           throw new Error('Admin users function not found. Deploy Supabase Edge Function: list-admin-users.');
         }
 
-        if (message.includes('500') || message.includes('server misconfiguration')) {
+        if (status === 500 || message.includes('500') || message.includes('server misconfiguration')) {
           throw new Error('Admin users function misconfigured. Set SERVICE_ROLE_KEY in Supabase Edge Function secrets.');
         }
 
@@ -1543,9 +1514,7 @@ class AdminDashboardService {
       }
 
       if (!data) return [];
-      
-      console.log('Edge Function response data:', data);
-      
+
       if (data.error) throw new Error(data.error);
 
       return data as AdminUserSettings[];
