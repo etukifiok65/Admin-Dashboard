@@ -39,6 +39,7 @@ export const NotificationsPage: React.FC = () => {
   const [isProcessingScheduled, setIsProcessingScheduled] = useState(false);
   const [activeDraftAction, setActiveDraftAction] = useState<'save' | 'send' | null>(null);
   const [actionNotificationId, setActionNotificationId] = useState<string | null>(null);
+  const [deletingNotificationId, setDeletingNotificationId] = useState<string | null>(null);
   const [createError, setCreateError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -221,6 +222,30 @@ export const NotificationsPage: React.FC = () => {
       setError(message);
     } finally {
       setIsProcessingScheduled(false);
+    }
+  };
+
+  const handleDeleteDraft = async (notification: BroadcastNotification) => {
+    const shouldDelete = window.confirm('Delete this draft notification? This action cannot be undone.');
+    if (!shouldDelete) return;
+
+    setDeletingNotificationId(notification.id);
+    setCreateError(null);
+    setError(null);
+
+    try {
+      await adminDashboardService.deleteBroadcastNotificationDraft(notification.id);
+      await fetchNotifications();
+
+      if (editingNotificationId === notification.id) {
+        resetFormState();
+      }
+    } catch (err) {
+      const message = normalizeErrorMessage(err, 'Failed to delete draft notification');
+      setCreateError(message);
+      setError(message);
+    } finally {
+      setDeletingNotificationId(null);
     }
   };
 
@@ -508,6 +533,14 @@ export const NotificationsPage: React.FC = () => {
                         className="rounded-lg bg-brand-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-brand-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
                       >
                         {actionNotificationId === notification.id ? 'Sending...' : 'Send Now'}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleDeleteDraft(notification)}
+                        disabled={deletingNotificationId === notification.id}
+                        className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                      >
+                        {deletingNotificationId === notification.id ? 'Deleting...' : 'Delete Draft'}
                       </button>
                     </div>
                   )}

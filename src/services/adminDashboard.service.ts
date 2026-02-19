@@ -2020,6 +2020,22 @@ class AdminDashboardService {
     }
   }
 
+  async deleteBroadcastNotificationDraft(notificationId: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('broadcast_notifications')
+        .delete()
+        .eq('id', notificationId)
+        .eq('status', 'draft');
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Error deleting draft notification:', error);
+      throw error;
+    }
+  }
+
   async processScheduledBroadcastNotifications(): Promise<number> {
     try {
       const { data, error } = await supabase.rpc('process_scheduled_broadcast_notifications');
