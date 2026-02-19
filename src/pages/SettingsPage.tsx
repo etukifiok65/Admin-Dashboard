@@ -30,7 +30,7 @@ export const SettingsPage: React.FC = () => {
         const [admins, types, logs] = await Promise.all([
           adminDashboardService.getAdminUsers(),
           adminDashboardService.getServiceTypes(),
-          adminDashboardService.getAdminAuditLogs(100, auditFilter === 'all' ? undefined : auditFilter),
+          adminDashboardService.getAdminAuditLogs(5000, auditFilter === 'all' ? undefined : auditFilter),
         ]);
 
         if (admins) setAdminUsers(admins);
@@ -53,7 +53,7 @@ export const SettingsPage: React.FC = () => {
       const [admins, types, logs] = await Promise.all([
         adminDashboardService.getAdminUsers(),
         adminDashboardService.getServiceTypes(),
-        adminDashboardService.getAdminAuditLogs(100, auditFilter === 'all' ? undefined : auditFilter),
+        adminDashboardService.getAdminAuditLogs(5000, auditFilter === 'all' ? undefined : auditFilter),
       ]);
       if (admins) setAdminUsers(admins);
       if (types) setServiceTypes(types);

@@ -1630,53 +1630,34 @@ class AdminDashboardService {
    */
   async getAdminAuditLogs(limit: number = 100, tableFilter?: string): Promise<AuditLog[] | null> {
     try {
-      // Build query
-      let query = supabase
-        .from('audit_logs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(limit);
+      const { data, error } = await supabase.functions.invoke('list-audit-logs', {
+        body: {
+          limit,
+          tableFilter: tableFilter || null,
+        },
+      });
 
-      // Apply table filter if provided
-      if (tableFilter) {
-        query = query.eq('table_name', tableFilter);
+      if (error) {
+        const message = error.message?.toLowerCase() || '';
+
+        if (message.includes('403') || message.includes('forbidden')) {
+          throw new Error('Audit logs access denied. Super admin access is required.');
+        }
+
+        if (message.includes('404') || message.includes('not found')) {
+          throw new Error('Audit logs function not found. Deploy Supabase Edge Function: list-audit-logs.');
+        }
+
+        if (message.includes('500') || message.includes('server misconfiguration')) {
+          throw new Error('Audit logs function misconfigured. Check Edge Function secrets.');
+        }
+
+        throw new Error(error.message || 'Failed to fetch audit logs');
       }
 
-      const { data: logs, error: logsError } = await query;
+      if (!data) return [];
 
-      if (logsError) throw logsError;
-      if (!logs || logs.length === 0) return [];
-
-      // Get unique user IDs from logs
-      const userIds = [...new Set(logs.map(log => log.user_id).filter(Boolean))];
-
-      // Fetch admin users for those auth IDs
-      const { data: adminUsers, error: adminError } = await supabase
-        .from('admin_users')
-        .select('auth_id, name, email, role')
-        .in('auth_id', userIds);
-
-      if (adminError) {
-        console.warn('Could not fetch admin users for audit logs:', adminError);
-      }
-
-      // Create a map of auth_id to admin user
-      const adminUserMap = new Map(
-        (adminUsers || []).map(user => [user.auth_id, user])
-      );
-
-      // Merge admin user data with audit logs
-      return logs.map((log: any) => ({
-        id: log.id,
-        table_name: log.table_name,
-        operation: log.operation,
-        record_id: log.record_id,
-        user_id: log.user_id,
-        old_data: log.old_data,
-        new_data: log.new_data,
-        created_at: log.created_at,
-        admin_user: log.user_id ? adminUserMap.get(log.user_id) : undefined,
-      }));
+      return data as AuditLog[];
     } catch (error) {
       console.error('Error fetching admin audit logs:', error);
       return null;

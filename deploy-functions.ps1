@@ -32,6 +32,7 @@ Write-Host ""
 # Deploy functions
 $functions = @(
     "list-admin-users",
+    "list-audit-logs",
     "create-admin-user",
     "check-admin-status"
 )

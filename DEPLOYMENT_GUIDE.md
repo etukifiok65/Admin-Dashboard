@@ -38,8 +38,9 @@ Run the automated deployment script:
 .\deploy-functions.ps1
 ```
 
-This will deploy all three admin functions:
+This will deploy all admin functions:
 - `list-admin-users`
+- `list-audit-logs`
 - `create-admin-user`
 - `check-admin-status`
 
@@ -50,6 +51,7 @@ If you prefer to deploy functions individually:
 ```powershell
 # Deploy each function
 supabase functions deploy list-admin-users
+supabase functions deploy list-audit-logs
 supabase functions deploy create-admin-user
 supabase functions deploy check-admin-status
 ```
