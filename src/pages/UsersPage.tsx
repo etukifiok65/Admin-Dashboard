@@ -371,7 +371,6 @@ export const UsersPage: React.FC = () => {
                                 )}
                                 <div>
                                   <p className="text-sm font-semibold text-slate-900">{patient.name}</p>
-                                  <p className="text-xs text-slate-500">{patient.email || 'Email not available'}</p>
                                 </div>
                               </div>
                             </td>

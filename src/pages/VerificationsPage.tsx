@@ -602,7 +602,6 @@ export const VerificationsPage: React.FC = () => {
                               <td className="px-6 py-4">
                                 <p className="text-sm font-semibold text-slate-900">{provider.name}</p>
                                 <p className="text-xs text-slate-500">
-                                  {provider.phone_number || 'Phone not available'}
                                 </p>
                               </td>
                               <td className="px-6 py-4 text-sm text-slate-600">{provider.specialty}</td>
@@ -727,7 +726,6 @@ export const VerificationsPage: React.FC = () => {
                             </td>
                             <td className="px-6 py-4">
                               <p className="text-sm font-semibold text-slate-900">{patient.name}</p>
-                              <p className="text-xs text-slate-500">{patient.email || 'Email not available'}</p>
                             </td>
                             <td className="px-6 py-4 text-sm text-slate-600">
                               {patient.phone_number || 'Phone not available'}

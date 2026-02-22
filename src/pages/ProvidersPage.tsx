@@ -412,7 +412,6 @@ export const ProvidersPage: React.FC = () => {
                                 <div>
                                   <p className="text-sm font-semibold text-slate-900">{provider.name}</p>
                                   <p className="text-xs text-slate-500">
-                                    {provider.phone_number || 'Phone not available'}
                                   </p>
                                 </div>
                               </div>
