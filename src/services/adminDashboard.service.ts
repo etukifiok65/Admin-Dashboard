@@ -537,6 +537,14 @@ class AdminDashboardService {
    */
   async getPatientDetails(id: string): Promise<PatientDetails | null> {
     try {
+      const { data: secureData, error: secureError } = await supabase.functions.invoke('get-verification-details', {
+        body: { entity: 'patient', id },
+      });
+
+      if (!secureError && secureData) {
+        return secureData as PatientDetails;
+      }
+
       const { data, error } = await supabase
         .from('patients')
         .select(
@@ -565,6 +573,31 @@ class AdminDashboardService {
 
       let patientDocuments: PatientDocument[] = [];
 
+      const extractPatientDocumentsFromRecord = (record: Record<string, unknown>): PatientDocument[] => {
+        const candidateKeys = [
+          'identity_document_url',
+          'verification_document_url',
+          'document_url',
+          'government_id_url',
+          'id_card_url',
+          'nin_document_url',
+          'bvn_document_url',
+          'proof_of_address_url',
+          'profile_image_url',
+        ];
+
+        return candidateKeys
+          .filter((key) => typeof record[key] === 'string' && (record[key] as string).trim().length > 0)
+          .map((key) => ({
+            id: `${key}-${id}`,
+            patient_id: id,
+            document_type: key.replace(/_url$/, ''),
+            storage_path: String(record[key]),
+            verification_status: (record.verification_status as 'pending' | 'approved' | 'rejected') || 'pending',
+            submitted_at: String(record.updated_at || record.created_at || new Date().toISOString()),
+          }));
+      };
+
       const { data: docsData, error: docsError } = await supabase
         .from('patient_documents')
         .select('*')
@@ -573,6 +606,22 @@ class AdminDashboardService {
 
       if (!docsError && docsData) {
         patientDocuments = docsData as PatientDocument[];
+      }
+
+      if (patientDocuments.length === 0) {
+        const { data: altDocsData, error: altDocsError } = await supabase
+          .from('patient_verification_documents')
+          .select('*')
+          .eq('patient_id', id)
+          .order('created_at', { ascending: false });
+
+        if (!altDocsError && altDocsData) {
+          patientDocuments = altDocsData as PatientDocument[];
+        }
+      }
+
+      if (patientDocuments.length === 0) {
+        patientDocuments = extractPatientDocumentsFromRecord(normalized as Record<string, unknown>);
       }
 
       if (patientDocuments.length === 0 && normalized.profile_image_url) {
@@ -685,6 +734,14 @@ class AdminDashboardService {
    */
   async getProviderDetails(id: string): Promise<ProviderDetails | null> {
     try {
+      const { data: secureData, error: secureError } = await supabase.functions.invoke('get-verification-details', {
+        body: { entity: 'provider', id },
+      });
+
+      if (!secureError && secureData) {
+        return secureData as ProviderDetails;
+      }
+
       const { data, error } = await supabase
         .from('providers')
         .select('*, provider_documents(*)')

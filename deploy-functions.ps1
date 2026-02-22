@@ -33,6 +33,7 @@ Write-Host ""
 $functions = @(
     "list-admin-users",
     "list-audit-logs",
+    "get-verification-details",
     "create-admin-user",
     "check-admin-status"
 )

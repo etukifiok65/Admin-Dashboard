@@ -41,6 +41,7 @@ Run the automated deployment script:
 This will deploy all admin functions:
 - `list-admin-users`
 - `list-audit-logs`
+- `get-verification-details`
 - `create-admin-user`
 - `check-admin-status`
 
@@ -52,6 +53,7 @@ If you prefer to deploy functions individually:
 # Deploy each function
 supabase functions deploy list-admin-users
 supabase functions deploy list-audit-logs
+supabase functions deploy get-verification-details
 supabase functions deploy create-admin-user
 supabase functions deploy check-admin-status
 ```
