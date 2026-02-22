@@ -166,10 +166,10 @@ export const DashboardPage: React.FC = () => {
                 />
                 <StatCard
                   title="Pending Verification"
-                  value={metrics.pendingProviders}
+                  value={metrics.pendingProviders + metrics.pendingPatients}
                   icon="⏳"
                   tone="amber"
-                  helper="Awaiting review"
+                  helper={`${metrics.pendingProviders} providers, ${metrics.pendingPatients} patients`}
                 />
               </div>
             </div>
