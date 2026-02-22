@@ -82,6 +82,17 @@ export interface PatientDetails extends Patient {
   patient_addresses?: PatientAddress[];
   emergency_contacts?: EmergencyContact[];
   medical_info?: MedicalInfo | null;
+  patient_documents?: PatientDocument[];
+}
+
+export interface PatientDocument {
+  id: string;
+  patient_id: string;
+  document_type: string;
+  storage_path: string;
+  verification_status?: 'pending' | 'approved' | 'rejected';
+  submitted_at?: string;
+  created_at?: string;
 }
 
 // Provider type

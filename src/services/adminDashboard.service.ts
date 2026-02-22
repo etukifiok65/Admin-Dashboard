@@ -3,6 +3,7 @@ import type {
   DashboardMetrics,
   Patient,
   PatientDetails,
+  PatientDocument,
   Provider,
   ProviderDetails,
   ProviderDocument,
@@ -562,9 +563,71 @@ class AdminDashboardService {
           : data.medical_info || null,
       };
 
-      return normalized as PatientDetails;
+      let patientDocuments: PatientDocument[] = [];
+
+      const { data: docsData, error: docsError } = await supabase
+        .from('patient_documents')
+        .select('*')
+        .eq('patient_id', id)
+        .order('created_at', { ascending: false });
+
+      if (!docsError && docsData) {
+        patientDocuments = docsData as PatientDocument[];
+      }
+
+      if (patientDocuments.length === 0 && normalized.profile_image_url) {
+        patientDocuments = [
+          {
+            id: `profile-image-${id}`,
+            patient_id: id,
+            document_type: 'profile_image',
+            storage_path: normalized.profile_image_url,
+            verification_status: normalized.verification_status,
+            submitted_at: normalized.updated_at || normalized.created_at,
+          },
+        ];
+      }
+
+      return {
+        ...(normalized as PatientDetails),
+        patient_documents: patientDocuments,
+      };
     } catch (error) {
       console.error('Error fetching patient details:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Create signed URL for patient document preview
+   */
+  async getPatientDocumentSignedUrl(storagePath: string): Promise<string | null> {
+    try {
+      if (/^https?:\/\//i.test(storagePath)) {
+        return storagePath;
+      }
+
+      const buildPath = (bucketPrefix: string) => storagePath.replace(new RegExp(`^${bucketPrefix}\/`), '');
+
+      const trySignedUrl = async (bucket: string, path: string) => {
+        const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 10);
+        if (error || !data?.signedUrl) return null;
+        return data.signedUrl;
+      };
+
+      const preferredBucket = storagePath.startsWith('patient-documents/') ? 'patient-documents' : 'patient-documents';
+      const preferredPath = buildPath(preferredBucket);
+
+      const preferredUrl = await trySignedUrl(preferredBucket, preferredPath);
+      if (preferredUrl) return preferredUrl;
+
+      const fallbackProviderPath = buildPath('provider-documents');
+      const providerFallbackUrl = await trySignedUrl('provider-documents', fallbackProviderPath);
+      if (providerFallbackUrl) return providerFallbackUrl;
+
+      throw new Error('No signed URL returned from storage');
+    } catch (error) {
+      console.error('Error creating patient document signed URL:', error);
       return null;
     }
   }

@@ -363,6 +363,29 @@ export const VerificationsPage: React.FC = () => {
     }
   };
 
+  const handlePreviewPatientDocument = async (storagePath: string, documentId: string) => {
+    setPreviewingDocumentId(documentId);
+    setActionError(null);
+    try {
+      const url = await adminDashboardService.getPatientDocumentSignedUrl(storagePath);
+      if (!url) {
+        throw new Error('Unable to generate patient document preview');
+      }
+
+      const extension = storagePath.split('.').pop()?.toLowerCase() || '';
+      const fileType = extension === 'pdf' ? 'pdf' : 'image';
+
+      setPreviewUrl(url);
+      setPreviewTitle(storagePath.split('/').pop() || 'Patient Document Preview');
+      setPreviewType(fileType);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to preview patient document';
+      setActionError(message);
+    } finally {
+      setPreviewingDocumentId(null);
+    }
+  };
+
   return (
     <DashboardLayout>
       <div className="space-y-8">
@@ -1022,6 +1045,45 @@ export const VerificationsPage: React.FC = () => {
                         <span className="font-semibold text-slate-900">
                           {new Date(selectedPatient.updated_at).toLocaleDateString()}
                         </span>
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                      <p className="text-xs font-semibold uppercase text-slate-400">Document Review</p>
+                      <div className="mt-3 space-y-3">
+                        {(selectedPatient.patient_documents || []).length === 0 ? (
+                          <p className="text-xs text-slate-500">No patient verification documents submitted yet.</p>
+                        ) : (
+                          selectedPatient.patient_documents?.map((doc) => (
+                            <div key={doc.id} className="rounded-lg border border-slate-200 bg-white p-3">
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="text-sm font-semibold text-slate-900">
+                                    {String(doc.document_type || 'document').replace(/_/g, ' ')}
+                                  </p>
+                                  <p className="text-xs text-slate-500">{doc.storage_path}</p>
+                                </div>
+                                <span
+                                  className={`rounded-full px-2 py-1 text-xs font-semibold ${patientStatusBadge(
+                                    doc.verification_status || selectedPatient.verification_status
+                                  )}`}
+                                >
+                                  {doc.verification_status || selectedPatient.verification_status}
+                                </span>
+                              </div>
+                              <div className="mt-3 flex flex-wrap items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => handlePreviewPatientDocument(doc.storage_path, doc.id)}
+                                  disabled={previewingDocumentId === doc.id}
+                                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-600 transition hover:border-brand-200 hover:text-brand-700 disabled:opacity-60"
+                                >
+                                  {previewingDocumentId === doc.id ? 'Opening...' : 'View document'}
+                                </button>
+                              </div>
+                            </div>
+                          ))
+                        )}
                       </div>
                     </div>
 
