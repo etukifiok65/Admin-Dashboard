@@ -106,8 +106,9 @@ BEGIN
             WHERE type = 'credit'
               AND reference = appointment_id_param::text || '_provider_deduction'
         ) THEN
-            INSERT INTO transactions (provider_id, type, amount, description, status, reference)
+            INSERT INTO transactions (patient_id, provider_id, type, amount, description, status, reference)
             VALUES (
+                appointment.patient_id,
                 appointment.provider_id,
                 'credit',
                 provider_credit_amount,

@@ -1,6 +1,4 @@
--- Update admin_cancel_appointment to credit provider with deduction amount
-
-DROP FUNCTION IF EXISTS admin_cancel_appointment(UUID, TEXT, NUMERIC);
+-- Fix provider credit transaction to include patient_id
 
 CREATE OR REPLACE FUNCTION admin_cancel_appointment(
     appointment_id_param UUID,
@@ -101,7 +99,7 @@ BEGIN
             updated_at = NOW()
         WHERE provider_id = appointment.provider_id;
 
-        -- Log provider credit as transaction
+        -- Log provider credit as transaction (include patient_id for schema compliance)
         IF NOT EXISTS (
             SELECT 1
             FROM transactions
