@@ -1,6 +1,4 @@
--- Update admin_cancel_appointment to credit provider with deduction amount
-
-DROP FUNCTION IF EXISTS admin_cancel_appointment(UUID, TEXT, NUMERIC);
+-- Fix provider_wallet table name to provider_wallets in admin_cancel_appointment
 
 CREATE OR REPLACE FUNCTION admin_cancel_appointment(
     appointment_id_param UUID,
