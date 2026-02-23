@@ -1,4 +1,4 @@
--- Fix provider credit transaction to include patient_id
+-- Update admin_cancel_appointment to use provider_transaction_logs for provider credits
 
 CREATE OR REPLACE FUNCTION admin_cancel_appointment(
     appointment_id_param UUID,
@@ -67,6 +67,7 @@ BEGIN
         updated_at = NOW()
     WHERE id = appointment_id_param;
 
+    -- Patient refund goes to patient_wallet and transactions table
     IF refund_amount > 0 THEN
         UPDATE patient_wallet
         SET balance = balance + refund_amount,
@@ -92,7 +93,7 @@ BEGIN
         END IF;
     END IF;
 
-    -- If there's a deduction, credit provider wallet (80% of deduction)
+    -- Provider credit goes to provider_wallets and provider_transaction_logs
     IF deduction_amount > 0 AND provider_credit_amount > 0 THEN
         UPDATE provider_wallets
         SET balance = balance + provider_credit_amount,

@@ -99,24 +99,23 @@ BEGIN
             updated_at = NOW()
         WHERE provider_id = appointment.provider_id;
 
-        -- Log provider credit as transaction
-        IF NOT EXISTS (
-            SELECT 1
-            FROM transactions
-            WHERE type = 'credit'
-              AND reference = appointment_id_param::text || '_provider_deduction'
-        ) THEN
-            INSERT INTO transactions (patient_id, provider_id, type, amount, description, status, reference)
-            VALUES (
-                appointment.patient_id,
-                appointment.provider_id,
-                'credit',
-                provider_credit_amount,
-                'Cancellation deduction credit (80% of ' || deduction_amount::text || ')',
-                'completed',
-                appointment_id_param::text || '_provider_deduction'
-            );
-        END IF;
+        -- Log provider credit in provider_transaction_logs (provider-specific table)
+        INSERT INTO provider_transaction_logs (
+            provider_id,
+            transaction_type,
+            amount,
+            platform_fee_amount,
+            related_appointment_id,
+            description
+        )
+        VALUES (
+            appointment.provider_id,
+            'credit',
+            provider_credit_amount,
+            platform_fee_amount,
+            appointment_id_param,
+            'Cancellation deduction credit (80% of ' || deduction_amount::text || ')'
+        );
     END IF;
 
     RETURN json_build_object(
