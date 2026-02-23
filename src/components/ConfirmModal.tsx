@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 interface ConfirmModalProps {
   isOpen: boolean;
   title: string;
@@ -7,6 +9,8 @@ interface ConfirmModalProps {
   onConfirm: () => void;
   onCancel: () => void;
   isLoading?: boolean;
+  isConfirmDisabled?: boolean;
+  children?: ReactNode;
 }
 
 export default function ConfirmModal({
@@ -18,6 +22,8 @@ export default function ConfirmModal({
   onConfirm,
   onCancel,
   isLoading = false,
+  isConfirmDisabled = false,
+  children,
 }: ConfirmModalProps) {
   if (!isOpen) return null;
 
@@ -26,6 +32,8 @@ export default function ConfirmModal({
       <div className="bg-white rounded-lg p-6 w-full max-w-md">
         <h2 className="text-xl font-semibold mb-3">{title}</h2>
         <p className="text-sm text-gray-600 mb-6">{message}</p>
+
+        {children && <div className="mb-6">{children}</div>}
 
         <div className="flex gap-3">
           <button
@@ -39,7 +47,7 @@ export default function ConfirmModal({
           <button
             type="button"
             onClick={onConfirm}
-            disabled={isLoading}
+            disabled={isLoading || isConfirmDisabled}
             className="flex-1 px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-blue-300"
           >
             {isLoading ? 'Processing...' : confirmText}

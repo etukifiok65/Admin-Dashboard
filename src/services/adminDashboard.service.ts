@@ -511,6 +511,56 @@ class AdminDashboardService {
   }
 
   /**
+   * Cancel appointment with wallet refund
+   */
+  async cancelAppointmentWithRefund(
+    id: string,
+    refundPercentage: number,
+    cancellationReason?: string
+  ): Promise<{
+    success: boolean;
+    refundAmount?: number;
+    deductionAmount?: number;
+    providerCreditAmount?: number;
+    platformFeeAmount?: number;
+    refundPercentage?: number;
+    breakdown?: string;
+    message?: string;
+    error?: string;
+  }> {
+    const normalizedRefundPercentage = Number.isFinite(refundPercentage)
+      ? Math.min(100, Math.max(0, Number(refundPercentage.toFixed(2))))
+      : 100;
+
+    const { data, error } = await supabase.rpc('admin_cancel_appointment', {
+      appointment_id_param: id,
+      cancellation_reason_param: cancellationReason ?? null,
+      refund_percentage_param: normalizedRefundPercentage,
+    });
+
+    if (error) {
+      console.error('Error cancelling appointment with refund:', error);
+      throw new Error(`Failed to cancel appointment: ${error.message}`);
+    }
+
+    if (!data?.success) {
+      throw new Error(data?.error || 'Failed to cancel appointment');
+    }
+
+    return data as {
+      success: boolean;
+      refundAmount?: number;
+      deductionAmount?: number;
+      providerCreditAmount?: number;
+      platformFeeAmount?: number;
+      refundPercentage?: number;
+      breakdown?: string;
+      message?: string;
+      error?: string;
+    };
+  }
+
+  /**
    * Get a single patient by ID
    */
   async getPatientById(id: string): Promise<Patient | null> {

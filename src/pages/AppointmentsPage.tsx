@@ -35,6 +35,7 @@ export const AppointmentsPage: React.FC = () => {
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
+  const [actionSuccess, setActionSuccess] = useState<string | null>(null);
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<'all' | 'Requested' | 'Scheduled' | 'Completed' | 'Cancelled'>('all');
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'date'>('newest');
@@ -43,6 +44,8 @@ export const AppointmentsPage: React.FC = () => {
   const [isUpdatingStatus, setIsUpdatingStatus] = useState(false);
   const [isConfirmOpen, setIsConfirmOpen] = useState(false);
   const [pendingStatus, setPendingStatus] = useState<'Requested' | 'Scheduled' | 'Completed' | 'Cancelled' | null>(null);
+  const [refundPercentage, setRefundPercentage] = useState('100');
+  const [refundInputError, setRefundInputError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -88,6 +91,7 @@ export const AppointmentsPage: React.FC = () => {
 
       setIsDetailLoading(true);
       setActionError(null);
+      setActionSuccess(null);
 
       try {
         const details = await adminDashboardService.getAppointmentDetails(selectedAppointmentId);
@@ -108,7 +112,24 @@ export const AppointmentsPage: React.FC = () => {
 
     // Open confirmation modal
     setPendingStatus(status);
+    if (status === 'Cancelled') {
+      setRefundPercentage('100');
+      setRefundInputError(null);
+    }
     setIsConfirmOpen(true);
+  };
+
+  const parseRefundPercentage = (): number | null => {
+    const parsed = Number.parseFloat(refundPercentage);
+    if (Number.isNaN(parsed)) {
+      return null;
+    }
+
+    if (parsed < 0 || parsed > 100) {
+      return null;
+    }
+
+    return Number(parsed.toFixed(2));
   };
 
   const handleConfirmStatusUpdate = async () => {
@@ -116,13 +137,43 @@ export const AppointmentsPage: React.FC = () => {
 
     setIsUpdatingStatus(true);
     setActionError(null);
+    setActionSuccess(null);
 
     // Store original status for rollback in case of error
     const originalApt = appointments.find(apt => apt.id === selectedAppointmentId);
     const originalStatus = originalApt?.status;
 
     try {
-      await adminDashboardService.updateAppointmentStatus(selectedAppointmentId, pendingStatus);
+      if (pendingStatus === 'Cancelled') {
+        const parsedRefundPercentage = parseRefundPercentage();
+        if (parsedRefundPercentage === null) {
+          setRefundInputError('Refund percentage must be between 0 and 100.');
+          return;
+        }
+
+        const cancelResult = await adminDashboardService.cancelAppointmentWithRefund(
+          selectedAppointmentId,
+          parsedRefundPercentage,
+          'Cancelled by admin dashboard'
+        );
+
+        const refundAmount = Number(cancelResult.refundAmount || 0);
+        const breakdown = cancelResult.breakdown as string | undefined;
+        
+        if (breakdown) {
+          setActionSuccess(`Appointment cancelled. ${breakdown}`);
+        } else {
+          setActionSuccess(
+            `Appointment cancelled successfully. Patient wallet refunded ${selectedAppointment?.currency || 'NGN'} ${refundAmount.toLocaleString(undefined, {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}.`
+          );
+        }
+      } else {
+        await adminDashboardService.updateAppointmentStatus(selectedAppointmentId, pendingStatus);
+        setActionSuccess(`Appointment marked as ${pendingStatus}.`);
+      }
       
       // Only update UI on success
       setAppointments(prev =>
@@ -137,6 +188,7 @@ export const AppointmentsPage: React.FC = () => {
 
       setIsConfirmOpen(false);
       setPendingStatus(null);
+      setRefundInputError(null);
     } catch (err) {
       // Revert UI changes on error
       if (originalStatus && selectedAppointmentId) {
@@ -160,7 +212,11 @@ export const AppointmentsPage: React.FC = () => {
   const handleCancelStatusUpdate = () => {
     setIsConfirmOpen(false);
     setPendingStatus(null);
+    setRefundInputError(null);
   };
+
+  const isCancelAction = pendingStatus === 'Cancelled';
+  const isRefundInputInvalid = isCancelAction && parseRefundPercentage() === null;
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
@@ -183,6 +239,12 @@ export const AppointmentsPage: React.FC = () => {
         {actionError && (
           <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700">
             {actionError}
+          </div>
+        )}
+
+        {actionSuccess && (
+          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+            {actionSuccess}
           </div>
         )}
 
@@ -666,13 +728,39 @@ export const AppointmentsPage: React.FC = () => {
       <ConfirmModal
         isOpen={isConfirmOpen}
         title="Confirm Status Change"
-        message={`Are you sure you want to mark this appointment as ${pendingStatus}?`}
-        confirmText="Confirm"
+        message={isCancelAction
+          ? 'Are you sure you want to cancel this appointment and refund the patient wallet?'
+          : `Are you sure you want to mark this appointment as ${pendingStatus}?`}
+        confirmText={isCancelAction ? 'Cancel & Refund' : 'Confirm'}
         cancelText="Cancel"
         onConfirm={handleConfirmStatusUpdate}
         onCancel={handleCancelStatusUpdate}
         isLoading={isUpdatingStatus}
-      />
+        isConfirmDisabled={isRefundInputInvalid}
+      >
+        {isCancelAction && (
+          <div>
+            <label htmlFor="refund-percentage" className="mb-2 block text-sm font-medium text-slate-700">
+              Refund percentage
+            </label>
+            <input
+              id="refund-percentage"
+              type="number"
+              min={0}
+              max={100}
+              step="0.01"
+              value={refundPercentage}
+              onChange={(event) => {
+                setRefundPercentage(event.target.value);
+                setRefundInputError(null);
+              }}
+              className="w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
+            />
+            <p className="mt-2 text-xs text-slate-500">Enter a value from 0 to 100. Default is 100%.</p>
+            {refundInputError && <p className="mt-2 text-xs text-red-600">{refundInputError}</p>}
+          </div>
+        )}
+      </ConfirmModal>
     </DashboardLayout>
   );
 };
