@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import type { FinancialMetrics, ProviderPayout, TransactionRecord, PaginationOptions } from '@app-types/index';
+import type { FinancialMetrics, ProviderPayout, TransactionRecord, PlatformRevenueLog, PaginationOptions } from '@app-types/index';
 import { adminDashboardService } from '@services/adminDashboard.service';
 import { DashboardLayout } from '@components/DashboardLayout';
 import ConfirmModal from '@components/ConfirmModal';
@@ -27,11 +27,17 @@ const payoutStatusColorMap: Record<string, string> = {
   failed: 'bg-red-100 text-red-800 border-red-200',
 };
 
+const revenueTypeColorMap: Record<string, string> = {
+  appointment_commission: 'bg-purple-100 text-purple-800 border-purple-200',
+  cancellation_fee: 'bg-orange-100 text-orange-800 border-orange-200',
+};
+
 export const FinancialPage: React.FC = () => {
   const [metrics, setMetrics] = useState<FinancialMetrics | null>(null);
   const [transactions, setTransactions] = useState<TransactionRecord[]>([]);
   const [payouts, setPayouts] = useState<ProviderPayout[]>([]);
-  const [activeTab, setActiveTab] = useState<'transactions' | 'payouts'>('transactions');
+  const [platformRevenueLogs, setPlatformRevenueLogs] = useState<PlatformRevenueLog[]>([]);
+  const [activeTab, setActiveTab] = useState<'transactions' | 'payouts' | 'platform-revenue'>('transactions');
   const [isLoading, setIsLoading] = useState(true);
   const [metricsLoading, setMetricsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +46,7 @@ export const FinancialPage: React.FC = () => {
   const [transactionFilter, setTransactionFilter] = useState<'all' | 'topup' | 'payment' | 'refund' | 'withdrawal'>('all');
   const [transactionStatus, setTransactionStatus] = useState<'all' | 'completed' | 'pending' | 'failed'>('all');
   const [payoutStatus, setPayoutStatus] = useState<'all' | 'pending' | 'processing' | 'completed' | 'failed'>('all');
+  const [revenueFilter, setRevenueFilter] = useState<'all' | 'appointment_commission' | 'cancellation_fee'>('all');
   const [updatingPayoutId, setUpdatingPayoutId] = useState<string | null>(null);
   const [isPayoutConfirmOpen, setIsPayoutConfirmOpen] = useState(false);
   const [pendingPayoutUpdate, setPendingPayoutUpdate] = useState<{id: string, status: 'pending' | 'processing' | 'completed' | 'failed'} | null>(null);
@@ -88,7 +95,7 @@ export const FinancialPage: React.FC = () => {
             setTransactions(response.data);
             setTotal(response.total);
           }
-        } else {
+        } else if (activeTab === 'payouts') {
           const response = await adminDashboardService.getProviderPayouts(options, {
             status: payoutStatus as any,
           });
@@ -99,6 +106,17 @@ export const FinancialPage: React.FC = () => {
             setTotal(response.total);
           } else {
             setError('No response from payouts service');
+          }
+        } else if (activeTab === 'platform-revenue') {
+          const response = await adminDashboardService.getPlatformRevenueLogs(options, {
+            revenue_type: revenueFilter,
+          });
+
+          if (response) {
+            setPlatformRevenueLogs(response.data);
+            setTotal(response.total);
+          } else {
+            setError('No response from platform revenue service');
           }
         }
       } catch (err) {
@@ -111,7 +129,7 @@ export const FinancialPage: React.FC = () => {
     };
 
     fetchData();
-  }, [activeTab, page, transactionFilter, transactionStatus, payoutStatus]);
+  }, [activeTab, page, transactionFilter, transactionStatus, payoutStatus, revenueFilter]);
 
   const handleUpdatePayoutStatus = async (payoutId: string, newStatus: 'pending' | 'processing' | 'completed' | 'failed') => {
     // Open confirmation modal
@@ -208,7 +226,10 @@ export const FinancialPage: React.FC = () => {
               <p className="mt-3 text-3xl font-bold text-purple-600">
                 ₦{metrics.platformRevenue.toLocaleString()}
               </p>
-              <p className="mt-2 text-xs text-slate-400">20% commission</p>
+              <div className="mt-2 text-xs text-slate-400 space-y-1">
+                <div>Commissions: ₦{metrics.platformCommissions.toLocaleString()}</div>
+                <div>Cancellation Fees: ₦{metrics.platformCancellationFees.toLocaleString()}</div>
+              </div>
             </div>
 
             <div className="rounded-lg border border-slate-200 bg-white/90 p-6 shadow-sm">
@@ -256,6 +277,19 @@ export const FinancialPage: React.FC = () => {
             }`}
           >
             🏦 Payouts
+          </button>
+          <button
+            onClick={() => {
+              setActiveTab('platform-revenue');
+              setPage(1);
+            }}
+            className={`px-4 py-3 font-semibold text-sm transition ${
+              activeTab === 'platform-revenue'
+                ? 'border-b-2 border-brand-600 text-brand-600'
+                : 'text-slate-600 hover:text-slate-900'
+            }`}
+          >
+            💰 Platform Revenue
           </button>
         </div>
 
@@ -500,6 +534,105 @@ export const FinancialPage: React.FC = () => {
                       <p className="text-sm text-slate-600">
                         Showing {(page - 1) * ITEMS_PER_PAGE + 1} to{' '}
                         {Math.min(page * ITEMS_PER_PAGE, total)} of {total} payouts
+                      </p>
+                      <div className="flex items-center gap-2">
+                        <button
+                          onClick={() => setPage(Math.max(1, page - 1))}
+                          disabled={page === 1}
+                          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-brand-200 hover:text-brand-700 disabled:opacity-50"
+                        >
+                          Previous
+                        </button>
+                        <span className="text-xs text-slate-500">
+                          Page {page} of {totalPages}
+                        </span>
+                        <button
+                          onClick={() => setPage(Math.min(totalPages, page + 1))}
+                          disabled={page === totalPages}
+                          className="rounded-lg border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-600 transition hover:border-brand-200 hover:text-brand-700 disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
+          )}
+
+          {activeTab === 'platform-revenue' && (
+            <div className="space-y-4 p-6">
+              <select
+                value={revenueFilter}
+                onChange={(e) => {
+                  setRevenueFilter(e.target.value as typeof revenueFilter);
+                  setPage(1);
+                }}
+                className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
+              >
+                <option value="all">All types</option>
+                <option value="appointment_commission">Appointment Commission</option>
+                <option value="cancellation_fee">Cancellation Fee</option>
+              </select>
+
+              {isLoading ? (
+                <div className="text-center py-10">
+                  <div className="mx-auto mb-4 h-10 w-10 rounded-full border-4 border-brand-100 border-t-brand-600 animate-spin"></div>
+                  <p className="text-sm text-slate-500">Loading platform revenue...</p>
+                </div>
+              ) : platformRevenueLogs.length === 0 ? (
+                <div className="py-10 text-center">
+                  <p className="text-sm font-semibold text-slate-800">No platform revenue logs found</p>
+                </div>
+              ) : (
+                <>
+                  <div className="overflow-x-auto">
+                    <table className="w-full">
+                      <thead className="border-b border-slate-100 bg-slate-50/70 text-xs font-semibold uppercase text-slate-500">
+                        <tr>
+                          <th className="px-6 py-3 text-left">Date</th>
+                          <th className="px-6 py-3 text-left">Type</th>
+                          <th className="px-6 py-3 text-left">Amount</th>
+                          <th className="px-6 py-3 text-left">Appointment ID</th>
+                          <th className="px-6 py-3 text-left">Description</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {platformRevenueLogs.map((log) => (
+                          <tr key={log.id} className="hover:bg-slate-50">
+                            <td className="px-6 py-4 text-sm text-slate-600">
+                              {format(new Date(log.created_at), 'MMM dd, yyyy HH:mm')}
+                            </td>
+                            <td className="px-6 py-4">
+                              <span
+                                className={`inline-flex rounded-full border px-3 py-1 text-xs font-semibold ${
+                                  revenueTypeColorMap[log.revenue_type]
+                                }`}
+                              >
+                                {log.revenue_type === 'appointment_commission' ? 'Commission' : 'Cancellation Fee'}
+                              </span>
+                            </td>
+                            <td className="px-6 py-4 text-sm font-semibold text-slate-900">
+                              ₦{log.amount.toLocaleString()}
+                            </td>
+                            <td className="px-6 py-4 text-xs font-mono text-slate-600">
+                              {log.related_appointment_id.substring(0, 8)}...
+                            </td>
+                            <td className="px-6 py-4 text-sm text-slate-600">
+                              {log.description || '—'}
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-between border-t border-slate-100 px-6 py-4">
+                      <p className="text-sm text-slate-600">
+                        Showing {(page - 1) * ITEMS_PER_PAGE + 1} to{' '}
+                        {Math.min(page * ITEMS_PER_PAGE, total)} of {total} logs
                       </p>
                       <div className="flex items-center gap-2">
                         <button

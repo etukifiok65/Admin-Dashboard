@@ -6,4 +6,6 @@ export * from './VerificationsPage';
 export * from './AppointmentsPage';
 export * from './FinancialPage';
 export * from './AnalyticsPage';
-export * from './SettingsPage';export * from './NotificationsPage';
+export * from './SettingsPage';
+export * from './NotificationsPage';
+export * from './SupportMessagesPage';

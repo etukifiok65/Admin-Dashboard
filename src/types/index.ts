@@ -241,7 +241,9 @@ export interface ApiError {
 export interface FinancialMetrics {
   patientWalletBalance: number;
   providerWalletBalance: number;
-  platformRevenue: number; // 20% commission from completed appointments
+  platformRevenue: number; // Total from platform_revenue_logs
+  platformCommissions: number; // From appointment_commission logs
+  platformCancellationFees: number; // From cancellation_fee logs
   pendingPayouts: number;
   totalTopUpRevenue: number; // All-time total top ups
 }
@@ -284,6 +286,38 @@ export interface TransactionRecord {
   provider_id?: string;
   provider_name?: string;
   created_at: string;
+}
+
+export interface PlatformRevenueLog {
+  id: string;
+  revenue_type: 'appointment_commission' | 'cancellation_fee';
+  amount: number;
+  related_appointment_id: string;
+  description?: string;
+  created_at: string;
+}
+
+// Support Messages Types (from messages table)
+export interface SupportMessage {
+  id: number;
+  name: string;
+  email: string;
+  phone?: string;
+  subject?: string;
+  message: string;
+  category: 'general' | 'technical' | 'billing' | 'appointment' | 'complaint' | 'feedback';
+  priority: 'low' | 'normal' | 'high' | 'urgent';
+  status: 'new' | 'in_progress' | 'responded' | 'resolved' | 'closed';
+  admin_response?: string;
+  responded_by?: string;
+  responded_at?: string;
+  created_at: string;
+  updated_at?: string;
+}
+
+export interface SupportMessageDetails extends SupportMessage {
+  responded_by_name?: string;
+  responded_by_email?: string;
 }
 
 // Analytics Types

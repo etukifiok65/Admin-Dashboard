@@ -11,6 +11,7 @@ import {
   FinancialPage,
   AnalyticsPage,
   NotificationsPage,
+  SupportMessagesPage,
   SettingsPage,
 } from '@pages/index';
 import './styles/index.css';
@@ -157,6 +158,14 @@ function App() {
           element={
             <RoleBasedRoute requiredPage="notifications">
               <NotificationsPage />
+            </RoleBasedRoute>
+          }
+        />
+        <Route
+          path="/support-messages"
+          element={
+            <RoleBasedRoute requiredPage="support-messages">
+              <SupportMessagesPage />
             </RoleBasedRoute>
           }
         />

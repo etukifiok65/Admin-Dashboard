@@ -117,6 +117,20 @@ BEGIN
             appointment_id_param,
             'Cancellation deduction credit (80% of ' || deduction_amount::text || ')'
         );
+
+        -- Log platform revenue (20% cancellation fee)
+        INSERT INTO platform_revenue_logs (
+            revenue_type,
+            amount,
+            related_appointment_id,
+            description
+        )
+        VALUES (
+            'cancellation_fee',
+            platform_fee_amount,
+            appointment_id_param,
+            'Platform fee from partial cancellation (20% of ' || deduction_amount::text || ')'
+        );
     END IF;
 
     RETURN json_build_object(

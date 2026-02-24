@@ -14,6 +14,9 @@ import type {
   FinancialMetrics,
   ProviderPayout,
   TransactionRecord,
+  PlatformRevenueLog,
+  SupportMessage,
+  SupportMessageDetails,
   AppointmentsByService,
   LocationAnalytics,
   ProviderEarnings,
@@ -1016,19 +1019,28 @@ class AdminDashboardService {
       const providerWalletBalance = (providerWallets || [])
         .reduce((sum, w) => sum + (w.balance || 0), 0);
 
-      // Get platform revenue (20% from completed appointments)
-      const { data: appointments, error: appointmentError } = await supabase
-        .from('appointments')
-        .select('total_cost')
-        .eq('status', 'Completed');
+      // Get platform revenue from platform_revenue_logs
+      const { data: revenueLogs, error: revenueError } = await supabase
+        .from('platform_revenue_logs')
+        .select('amount, revenue_type');
 
-      if (appointmentError) {
-        console.error('Appointments error:', appointmentError);
-        throw appointmentError;
+      if (revenueError) {
+        console.error('Platform revenue error:', revenueError);
+        throw revenueError;
       }
 
-      const platformRevenue = (appointments || [])
-        .reduce((sum, a) => sum + (a.total_cost ? parseFloat(a.total_cost.toString()) * 0.2 : 0), 0);
+      console.log('Platform revenue logs fetched:', revenueLogs?.length || 0, 'records');
+      console.log('Revenue logs data:', revenueLogs);
+
+      const platformCommissions = (revenueLogs || [])
+        .filter((log) => log.revenue_type === 'appointment_commission')
+        .reduce((sum, log) => sum + (log.amount || 0), 0);
+
+      const platformCancellationFees = (revenueLogs || [])
+        .filter((log) => log.revenue_type === 'cancellation_fee')
+        .reduce((sum, log) => sum + (log.amount || 0), 0);
+
+      const platformRevenue = platformCommissions + platformCancellationFees;
 
       // Get pending payouts from provider_withdrawals table
       const { data: withdrawals, error: withdrawalError } = await supabase
@@ -1065,6 +1077,8 @@ class AdminDashboardService {
         patientWalletBalance,
         providerWalletBalance,
         platformRevenue,
+        platformCommissions,
+        platformCancellationFees,
         pendingPayouts,
         totalTopUpRevenue,
       };
@@ -1265,6 +1279,264 @@ class AdminDashboardService {
       };
     } catch (error) {
       console.error('Error fetching provider withdrawals:', error);
+      if (error instanceof Error) {
+        console.error('Details:', error.message);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Get platform revenue logs with pagination
+   */
+  async getPlatformRevenueLogs(
+    options: PaginationOptions,
+    params?: {
+      revenue_type?: 'appointment_commission' | 'cancellation_fee' | 'all';
+    }
+  ): Promise<ListResponse<PlatformRevenueLog> | null> {
+    try {
+      let query = supabase
+        .from('platform_revenue_logs')
+        .select('*', { count: 'exact' });
+
+      if (params?.revenue_type && params.revenue_type !== 'all') {
+        query = query.eq('revenue_type', params.revenue_type);
+      }
+
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(
+          (options.page - 1) * options.pageSize,
+          options.page * options.pageSize - 1
+        );
+
+      if (error) throw error;
+
+      const logs: PlatformRevenueLog[] = (data || []).map((log: any) => ({
+        id: log.id,
+        revenue_type: log.revenue_type,
+        amount: parseFloat(log.amount),
+        related_appointment_id: log.related_appointment_id,
+        description: log.description,
+        created_at: log.created_at,
+      }));
+
+      return {
+        data: logs,
+        total: count || 0,
+        page: options.page,
+        pageSize: options.pageSize,
+      };
+    } catch (error) {
+      console.error('Error fetching platform revenue logs:', error);
+      if (error instanceof Error) {
+        console.error('Details:', error.message);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Get support messages with pagination and filters
+   */
+  async getSupportMessages(
+    options: PaginationOptions,
+    params?: {
+      search?: string;
+      status?: string;
+      category?: string;
+      priority?: string;
+    }
+  ): Promise<ListResponse<SupportMessageDetails> | null> {
+    try {
+      let query = supabase
+        .from('messages')
+        .select(`
+          *,
+          admin_users!messages_responded_by_fkey (
+            name,
+            email
+          )
+        `, { count: 'exact' });
+
+      // Search across sender info, subject, message
+      if (params?.search) {
+        const safeSearch = sanitizeSearchTerm(params.search);
+        query = query.or(`name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%,subject.ilike.%${safeSearch}%,message.ilike.%${safeSearch}%`);
+      }
+
+      // Filter by status
+      if (params?.status && params.status !== 'all') {
+        query = query.eq('status', params.status);
+      }
+
+      // Filter by category
+      if (params?.category && params.category !== 'all') {
+        query = query.eq('category', params.category);
+      }
+
+      // Filter by priority
+      if (params?.priority && params.priority !== 'all') {
+        query = query.eq('priority', params.priority);
+      }
+
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(
+          (options.page - 1) * options.pageSize,
+          options.page * options.pageSize - 1
+        );
+
+      if (error) throw error;
+
+      const messages: SupportMessageDetails[] = (data || []).map((msg: any) => ({
+        ...msg,
+        responded_by_name: msg.admin_users?.name,
+        responded_by_email: msg.admin_users?.email,
+      }));
+
+      return {
+        data: messages,
+        total: count || 0,
+        page: options.page,
+        pageSize: options.pageSize,
+      };
+    } catch (error) {
+      console.error('Error fetching support messages:', error);
+      if (error instanceof Error) {
+        console.error('Details:', error.message);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Get single support message details
+   */
+  async getSupportMessage(id: number): Promise<SupportMessageDetails | null> {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .select(`
+          *,
+          admin_users!messages_responded_by_fkey (
+            name,
+            email
+          )
+        `)
+        .eq('id', id)
+        .single();
+
+      if (error) throw error;
+
+      return {
+        ...data,
+        responded_by_name: data.admin_users?.name,
+        responded_by_email: data.admin_users?.email,
+      };
+    } catch (error) {
+      console.error('Error fetching support message:', error);
+      if (error instanceof Error) {
+        console.error('Details:', error.message);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Respond to support message
+   */
+  async respondToSupportMessage(
+    id: number,
+    response: string,
+    newStatus?: 'in_progress' | 'responded' | 'resolved'
+  ): Promise<SupportMessage | null> {
+    try {
+      // Get current auth user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('Not authenticated');
+
+      // Get admin user record
+      const { data: adminUser, error: adminError } = await supabase
+        .from('admin_users')
+        .select('id')
+        .eq('auth_id', user.id)
+        .single();
+
+      if (adminError || !adminUser) throw new Error('Not authorized');
+
+      const { data, error } = await supabase
+        .from('messages')
+        .update({
+          admin_response: response,
+          responded_by: adminUser.id,
+          responded_at: new Date().toISOString(),
+          status: newStatus || 'responded',
+        })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error responding to support message:', error);
+      if (error instanceof Error) {
+        console.error('Details:', error.message);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Update support message status
+   */
+  async updateSupportMessageStatus(
+    id: number,
+    status: 'new' | 'in_progress' | 'responded' | 'resolved' | 'closed'
+  ): Promise<SupportMessage | null> {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .update({ status })
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating support message status:', error);
+      if (error instanceof Error) {
+        console.error('Details:', error.message);
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Update support message priority/category
+   */
+  async updateSupportMessageFields(
+    id: number,
+    fields: {
+      priority?: 'low' | 'normal' | 'high' | 'urgent';
+      category?: 'general' | 'technical' | 'billing' | 'appointment' | 'complaint' | 'feedback';
+    }
+  ): Promise<SupportMessage | null> {
+    try {
+      const { data, error } = await supabase
+        .from('messages')
+        .update(fields)
+        .eq('id', id)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return data;
+    } catch (error) {
+      console.error('Error updating support message fields:', error);
       if (error instanceof Error) {
         console.error('Details:', error.message);
       }

@@ -24,6 +24,7 @@ const navItems: NavItem[] = [
   { label: 'Verifications', path: '/verifications', icon: '✅', requiredPage: 'verifications' },
   { label: 'Financial', path: '/financial', icon: '💰', requiredPage: 'financial' },
   { label: 'Analytics', path: '/analytics', icon: '📈', requiredPage: 'analytics' },
+  { label: 'Support', path: '/support-messages', icon: '💬', requiredPage: 'support-messages' },
   { label: 'Settings', path: '/settings', icon: '⚙️', requiredPage: 'settings' },
 ];
 

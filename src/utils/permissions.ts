@@ -9,6 +9,7 @@ export type PagePath =
   | 'financial' 
   | 'analytics' 
   | 'notifications'
+  | 'support-messages'
   | 'settings';
 
 export type UserRole = 'super_admin' | 'admin' | 'moderator';
@@ -24,6 +25,7 @@ const rolePermissions: Record<UserRole, PagePath[]> = {
     'financial',
     'analytics',
     'notifications',
+    'support-messages',
     'settings',
   ],
   admin: [
@@ -35,6 +37,7 @@ const rolePermissions: Record<UserRole, PagePath[]> = {
     'financial',
     'analytics',
     'notifications',
+    'support-messages',
   ],
   moderator: [
     'dashboard',
@@ -42,6 +45,7 @@ const rolePermissions: Record<UserRole, PagePath[]> = {
     'providers',
     'verifications',
     'appointments',
+    'support-messages',
   ],
 };
 
