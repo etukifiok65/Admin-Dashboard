@@ -20,6 +20,7 @@ const hasExplicitAllowedOrigins = allowedOrigins.length > 0;
 const defaultAllowedOrigins = [
   'http://localhost:3000',
   'http://localhost:5173',
+  'https://admin.homicareplus.com',
 ];
 
 const resolvedAllowedOrigins = hasExplicitAllowedOrigins ? allowedOrigins : defaultAllowedOrigins;
