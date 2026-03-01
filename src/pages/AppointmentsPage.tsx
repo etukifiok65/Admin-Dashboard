@@ -41,6 +41,12 @@ const formatCoordinate = (value: number | null): string => {
   return value.toFixed(6);
 };
 
+const isChatConsultationAppointment = (appointment: AppointmentDetails | null): boolean => {
+  if (!appointment) return false;
+  const normalized = `${appointment.appointment_type || ''} ${appointment.service_type || ''}`.toLowerCase();
+  return normalized.includes('chat');
+};
+
 export const AppointmentsPage: React.FC = () => {
   const [appointments, setAppointments] = useState<AppointmentDetails[]>([]);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState<string | null>(null);
@@ -204,33 +210,48 @@ export const AppointmentsPage: React.FC = () => {
     // Store original status for rollback in case of error
     const originalApt = appointments.find(apt => apt.id === selectedAppointmentId);
     const originalStatus = originalApt?.status;
+    const isChatConsultation = isChatConsultationAppointment(selectedAppointment);
+    const shouldUseRefundFlow =
+      pendingStatus === 'Cancelled' &&
+      !isChatConsultation &&
+      selectedAppointment?.status === 'Scheduled' &&
+      Number(selectedAppointment?.total_cost || 0) > 0;
 
     try {
       if (pendingStatus === 'Cancelled') {
-        const parsedRefundPercentage = parseRefundPercentage();
-        if (parsedRefundPercentage === null) {
-          setRefundInputError('Refund percentage must be between 0 and 100.');
-          return;
-        }
+        if (shouldUseRefundFlow) {
+          const parsedRefundPercentage = parseRefundPercentage();
+          if (parsedRefundPercentage === null) {
+            setRefundInputError('Refund percentage must be between 0 and 100.');
+            return;
+          }
 
-        const cancelResult = await adminDashboardService.cancelAppointmentWithRefund(
-          selectedAppointmentId,
-          parsedRefundPercentage,
-          'Cancelled by admin dashboard'
-        );
-
-        const refundAmount = Number(cancelResult.refundAmount || 0);
-        const breakdown = cancelResult.breakdown as string | undefined;
-        
-        if (breakdown) {
-          setActionSuccess(`Appointment cancelled. ${breakdown}`);
-        } else {
-          setActionSuccess(
-            `Appointment cancelled successfully. Patient wallet refunded ${selectedAppointment?.currency || 'NGN'} ${refundAmount.toLocaleString(undefined, {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            })}.`
+          const cancelResult = await adminDashboardService.cancelAppointmentWithRefund(
+            selectedAppointmentId,
+            parsedRefundPercentage,
+            'Cancelled by admin dashboard'
           );
+
+          const refundAmount = Number(cancelResult.refundAmount || 0);
+          const breakdown = cancelResult.breakdown as string | undefined;
+
+          if (breakdown) {
+            setActionSuccess(`Appointment cancelled. ${breakdown}`);
+          } else {
+            setActionSuccess(
+              `Appointment cancelled successfully. Patient wallet refunded ${selectedAppointment?.currency || 'NGN'} ${refundAmount.toLocaleString(undefined, {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}.`
+            );
+          }
+        } else {
+          await adminDashboardService.updateAppointmentStatus(
+            selectedAppointmentId,
+            'Cancelled',
+            'Cancelled by admin dashboard'
+          );
+          setActionSuccess('Appointment cancelled successfully.');
         }
       } else {
         await adminDashboardService.updateAppointmentStatus(selectedAppointmentId, pendingStatus);
@@ -278,7 +299,13 @@ export const AppointmentsPage: React.FC = () => {
   };
 
   const isCancelAction = pendingStatus === 'Cancelled';
-  const isRefundInputInvalid = isCancelAction && parseRefundPercentage() === null;
+  const isChatConsultation = isChatConsultationAppointment(selectedAppointment);
+  const shouldUseRefundFlow =
+    isCancelAction &&
+    !isChatConsultation &&
+    selectedAppointment?.status === 'Scheduled' &&
+    Number(selectedAppointment?.total_cost || 0) > 0;
+  const isRefundInputInvalid = shouldUseRefundFlow && parseRefundPercentage() === null;
 
   const totalPages = Math.ceil(total / ITEMS_PER_PAGE);
 
@@ -952,16 +979,18 @@ export const AppointmentsPage: React.FC = () => {
         isOpen={isConfirmOpen}
         title="Confirm Status Change"
         message={isCancelAction
-          ? 'Are you sure you want to cancel this appointment and refund the patient wallet?'
+          ? (shouldUseRefundFlow
+              ? 'Are you sure you want to cancel this appointment and refund the patient wallet?'
+              : 'Are you sure you want to cancel this appointment?')
           : `Are you sure you want to mark this appointment as ${pendingStatus}?`}
-        confirmText={isCancelAction ? 'Cancel & Refund' : 'Confirm'}
+        confirmText={isCancelAction ? (shouldUseRefundFlow ? 'Cancel & Refund' : 'Cancel Appointment') : 'Confirm'}
         cancelText="Cancel"
         onConfirm={handleConfirmStatusUpdate}
         onCancel={handleCancelStatusUpdate}
         isLoading={isUpdatingStatus}
         isConfirmDisabled={isRefundInputInvalid}
       >
-        {isCancelAction && (
+        {shouldUseRefundFlow && (
           <div>
             <label htmlFor="refund-percentage" className="mb-2 block text-sm font-medium text-slate-700">
               Refund percentage
