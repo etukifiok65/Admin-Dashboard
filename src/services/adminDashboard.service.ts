@@ -1103,7 +1103,7 @@ class AdminDashboardService {
       // Get platform revenue from platform_revenue_logs
       const { data: revenueLogs, error: revenueError } = await supabase
         .from('platform_revenue_logs')
-        .select('amount, revenue_type, related_appointment_id');
+        .select('amount, revenue_type');
 
       if (revenueError) {
         console.error('Platform revenue error:', revenueError);
@@ -1117,37 +1117,9 @@ class AdminDashboardService {
         .filter((log) => log.revenue_type === 'appointment_commission')
         .reduce((sum, log) => sum + parseNumeric(log.amount), 0);
 
-      const cancellationFeeByAppointment = new Map<string, number>();
-      (revenueLogs || [])
+      const platformCancellationFees = (revenueLogs || [])
         .filter((log) => log.revenue_type === 'cancellation_fee')
-        .forEach((log) => {
-          const appointmentId = log.related_appointment_id || '';
-          const amount = parseNumeric(log.amount);
-          if (!appointmentId || amount <= 0) return;
-          cancellationFeeByAppointment.set(appointmentId, amount);
-        });
-
-      // Fallback: derive missing cancellation fees from provider_transaction_logs.platform_fee_amount
-      const { data: providerFeeLogs, error: providerFeeError } = await supabase
-        .from('provider_transaction_logs')
-        .select('related_appointment_id, platform_fee_amount, transaction_type')
-        .eq('transaction_type', 'credit');
-
-      if (providerFeeError) {
-        console.error('Provider fee fallback error:', providerFeeError);
-      } else {
-        (providerFeeLogs || []).forEach((log: any) => {
-          const appointmentId = log.related_appointment_id || '';
-          const amount = parseNumeric(log.platform_fee_amount);
-          if (!appointmentId || amount <= 0) return;
-          if (!cancellationFeeByAppointment.has(appointmentId)) {
-            cancellationFeeByAppointment.set(appointmentId, amount);
-          }
-        });
-      }
-
-      const platformCancellationFees = Array.from(cancellationFeeByAppointment.values())
-        .reduce((sum, amount) => sum + amount, 0);
+        .reduce((sum, log) => sum + parseNumeric(log.amount), 0);
 
       const platformRevenue = platformCommissions + platformCancellationFees;
 
@@ -1416,14 +1388,18 @@ class AdminDashboardService {
 
       let query = supabase
         .from('platform_revenue_logs')
-        .select('*');
+        .select('*', { count: 'exact' });
 
       if (params?.revenue_type && params.revenue_type !== 'all') {
         query = query.eq('revenue_type', params.revenue_type);
       }
 
-      const { data, error } = await query
-        .order('created_at', { ascending: false });
+      const { data, count, error } = await query
+        .order('created_at', { ascending: false })
+        .range(
+          (options.page - 1) * options.pageSize,
+          options.page * options.pageSize - 1
+        );
 
       if (error) throw error;
 
@@ -1436,56 +1412,9 @@ class AdminDashboardService {
         created_at: log.created_at,
       }));
 
-      // Fallback cancellation fees from provider logs when platform_revenue_logs has missing entries
-      const shouldIncludeCancellation = !params?.revenue_type || params.revenue_type === 'all' || params.revenue_type === 'cancellation_fee';
-      let mergedLogs = [...logs];
-
-      if (shouldIncludeCancellation) {
-        const existingCancellationAppointments = new Set(
-          logs
-            .filter((log) => log.revenue_type === 'cancellation_fee' && log.related_appointment_id)
-            .map((log) => log.related_appointment_id)
-        );
-
-        const { data: providerFeeLogs, error: providerFeeError } = await supabase
-          .from('provider_transaction_logs')
-          .select('id, related_appointment_id, platform_fee_amount, transaction_type, created_at')
-          .eq('transaction_type', 'credit')
-          .order('created_at', { ascending: false });
-
-        if (providerFeeError) {
-          console.error('Provider fee fallback logs error:', providerFeeError);
-        } else {
-          const fallbackLogs: PlatformRevenueLog[] = [];
-          (providerFeeLogs || []).forEach((log: any) => {
-            const appointmentId = log.related_appointment_id || '';
-            const amount = parseNumeric(log.platform_fee_amount);
-            if (!appointmentId || amount <= 0 || existingCancellationAppointments.has(appointmentId)) {
-              return;
-            }
-
-            fallbackLogs.push({
-              id: `provider-fee-${log.id}`,
-              revenue_type: 'cancellation_fee',
-              amount,
-              related_appointment_id: appointmentId,
-              description: 'Platform fee from cancellation (derived from provider transaction log)',
-              created_at: log.created_at,
-            });
-          });
-
-          mergedLogs = [...mergedLogs, ...fallbackLogs]
-            .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
-        }
-      }
-
-      const startIndex = (options.page - 1) * options.pageSize;
-      const endIndex = startIndex + options.pageSize;
-      const paginatedLogs = mergedLogs.slice(startIndex, endIndex);
-
       return {
-        data: paginatedLogs,
-        total: mergedLogs.length,
+        data: logs,
+        total: count || 0,
         page: options.page,
         pageSize: options.pageSize,
       };
