@@ -1,4 +1,4 @@
-import React, { Suspense, lazy, useEffect, useState } from 'react';
+import React, { Suspense, lazy, useEffect, useMemo, useState } from 'react';
 import type { AppointmentDetails, AppointmentLocationDisputeSnapshot, PaginationOptions } from '@app-types/index';
 import { adminDashboardService } from '@services/adminDashboard.service';
 import { DashboardLayout } from '@components/DashboardLayout';
@@ -64,9 +64,21 @@ export const AppointmentsPage: React.FC = () => {
   const [locationEvidence, setLocationEvidence] = useState<AppointmentLocationDisputeSnapshot[]>([]);
   const [isLocationEvidenceLoading, setIsLocationEvidenceLoading] = useState(false);
   const [locationEvidenceError, setLocationEvidenceError] = useState<string | null>(null);
+  const [isLocationEvidenceExpanded, setIsLocationEvidenceExpanded] = useState(false);
+  const [showAllLocationEvidenceBuckets, setShowAllLocationEvidenceBuckets] = useState(false);
   const [showPatientOnMap, setShowPatientOnMap] = useState(true);
   const [showProviderOnMap, setShowProviderOnMap] = useState(true);
   const [showPathsOnMap, setShowPathsOnMap] = useState(true);
+
+  const sortedLocationEvidence = useMemo(
+    () => [...locationEvidence].sort((a, b) => new Date(b.timeBucket).getTime() - new Date(a.timeBucket).getTime()),
+    [locationEvidence]
+  );
+
+  const visibleLocationEvidence = useMemo(
+    () => (showAllLocationEvidenceBuckets ? sortedLocationEvidence : sortedLocationEvidence.slice(0, 1)),
+    [showAllLocationEvidenceBuckets, sortedLocationEvidence]
+  );
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -546,13 +558,26 @@ export const AppointmentsPage: React.FC = () => {
                     <div className="flex flex-wrap items-center justify-between gap-3">
                       <h3 className="text-sm font-semibold text-slate-700">Location Evidence</h3>
                       <div className="flex flex-wrap items-center gap-3">
+                        <button
+                          type="button"
+                          onClick={() => setIsLocationEvidenceExpanded((prev) => !prev)}
+                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+                        >
+                          {isLocationEvidenceExpanded ? 'Hide' : 'Show'}
+                        </button>
+
+                        {isLocationEvidenceExpanded && (
+                          <>
                         <label htmlFor="location-evidence-bucket" className="text-xs font-semibold text-slate-600">
                           Bucket
                         </label>
                         <select
                           id="location-evidence-bucket"
                           value={locationEvidenceBucketMinutes}
-                          onChange={(event) => setLocationEvidenceBucketMinutes(Number(event.target.value) as 5 | 10 | 15)}
+                          onChange={(event) => {
+                            setLocationEvidenceBucketMinutes(Number(event.target.value) as 5 | 10 | 15);
+                            setShowAllLocationEvidenceBuckets(false);
+                          }}
                           className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
                         >
                           <option value={5}>5 min</option>
@@ -589,84 +614,104 @@ export const AppointmentsPage: React.FC = () => {
                           />
                           Show paths
                         </label>
+                          </>
+                        )}
                       </div>
                     </div>
 
-                    <Suspense fallback={<p className="mt-3 text-sm text-slate-500">Loading map...</p>}>
-                      <LocationEvidenceMap
-                        snapshots={locationEvidence}
-                        showPatient={showPatientOnMap}
-                        showProvider={showProviderOnMap}
-                        showPaths={showPathsOnMap}
-                        loading={isLocationEvidenceLoading}
-                        error={locationEvidenceError}
-                      />
-                    </Suspense>
+                    {isLocationEvidenceExpanded && (
+                      <>
+                        <Suspense fallback={<p className="mt-3 text-sm text-slate-500">Loading map...</p>}>
+                          <LocationEvidenceMap
+                            snapshots={visibleLocationEvidence}
+                            showPatient={showPatientOnMap}
+                            showProvider={showProviderOnMap}
+                            showPaths={showPathsOnMap}
+                            loading={isLocationEvidenceLoading}
+                            error={locationEvidenceError}
+                          />
+                        </Suspense>
 
-                    {!isLocationEvidenceLoading && !locationEvidenceError && locationEvidence.length === 0 && (
-                      <p className="mt-3 text-sm text-slate-500">No location logs found for this appointment.</p>
-                    )}
+                        {!isLocationEvidenceLoading && !locationEvidenceError && locationEvidence.length === 0 && (
+                          <p className="mt-3 text-sm text-slate-500">No location logs found for this appointment.</p>
+                        )}
 
-                    {!isLocationEvidenceLoading && !locationEvidenceError && locationEvidence.length > 0 && (
-                      <div className="mt-3 space-y-3">
-                        {locationEvidence.map((snapshot, index) => {
-                          const likelyArrived =
-                            snapshot.hasBothPoints &&
-                            snapshot.distanceMeters !== null &&
-                            snapshot.distanceMeters < LOCATION_HINT_DISTANCE_THRESHOLD_METERS;
-
-                          return (
-                            <div key={`${snapshot.timeBucket}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
-                              <div className="flex items-center justify-between gap-2">
-                                <p className="text-xs font-semibold text-slate-700">
-                                  Time bucket: {formatEvidenceDateTime(snapshot.timeBucket)}
-                                </p>
-                                <span
-                                  className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${
-                                    likelyArrived
-                                      ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
-                                      : 'border-amber-200 bg-amber-100 text-amber-700'
-                                  }`}
+                        {!isLocationEvidenceLoading && !locationEvidenceError && sortedLocationEvidence.length > 0 && (
+                          <div className="mt-3 space-y-3">
+                            {sortedLocationEvidence.length > 1 && (
+                              <div className="flex justify-end">
+                                <button
+                                  type="button"
+                                  onClick={() => setShowAllLocationEvidenceBuckets((prev) => !prev)}
+                                  className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                                 >
-                                  {likelyArrived ? 'Likely arrived' : 'Needs manual review'}
-                                </span>
+                                  {showAllLocationEvidenceBuckets
+                                    ? 'Show latest only'
+                                    : `Show full timeline (${sortedLocationEvidence.length} buckets)`}
+                                </button>
                               </div>
+                            )}
 
-                              <div className="mt-3 grid gap-3 md:grid-cols-2">
-                                <div>
-                                  <p className="text-xs font-semibold text-slate-600">Patient point</p>
-                                  <p className="mt-1 text-sm text-slate-700">
-                                    Lat/Lng: {formatCoordinate(snapshot.patient.latitude)}, {formatCoordinate(snapshot.patient.longitude)}
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    Accuracy: {snapshot.patient.accuracyMeters !== null ? `${snapshot.patient.accuracyMeters.toFixed(2)} m` : 'N/A'}
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    Captured: {formatEvidenceDateTime(snapshot.patient.capturedAt)}
+                            {visibleLocationEvidence.map((snapshot, index) => {
+                              const likelyArrived =
+                                snapshot.hasBothPoints &&
+                                snapshot.distanceMeters !== null &&
+                                snapshot.distanceMeters < LOCATION_HINT_DISTANCE_THRESHOLD_METERS;
+
+                              return (
+                                <div key={`${snapshot.timeBucket}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
+                                  <div className="flex items-center justify-between gap-2">
+                                    <p className="text-xs font-semibold text-slate-700">
+                                      Time bucket: {formatEvidenceDateTime(snapshot.timeBucket)}
+                                    </p>
+                                    <span
+                                      className={`inline-flex rounded-full border px-2 py-0.5 text-xs font-semibold ${
+                                        likelyArrived
+                                          ? 'border-emerald-200 bg-emerald-100 text-emerald-700'
+                                          : 'border-amber-200 bg-amber-100 text-amber-700'
+                                      }`}
+                                    >
+                                      {likelyArrived ? 'Likely arrived' : 'Needs manual review'}
+                                    </span>
+                                  </div>
+
+                                  <div className="mt-3 grid gap-3 md:grid-cols-2">
+                                    <div>
+                                      <p className="text-xs font-semibold text-slate-600">Patient point</p>
+                                      <p className="mt-1 text-sm text-slate-700">
+                                        Lat/Lng: {formatCoordinate(snapshot.patient.latitude)}, {formatCoordinate(snapshot.patient.longitude)}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        Accuracy: {snapshot.patient.accuracyMeters !== null ? `${snapshot.patient.accuracyMeters.toFixed(2)} m` : 'N/A'}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        Captured: {formatEvidenceDateTime(snapshot.patient.capturedAt)}
+                                      </p>
+                                    </div>
+
+                                    <div>
+                                      <p className="text-xs font-semibold text-slate-600">Provider point</p>
+                                      <p className="mt-1 text-sm text-slate-700">
+                                        Lat/Lng: {formatCoordinate(snapshot.provider.latitude)}, {formatCoordinate(snapshot.provider.longitude)}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        Accuracy: {snapshot.provider.accuracyMeters !== null ? `${snapshot.provider.accuracyMeters.toFixed(2)} m` : 'N/A'}
+                                      </p>
+                                      <p className="text-xs text-slate-500">
+                                        Captured: {formatEvidenceDateTime(snapshot.provider.capturedAt)}
+                                      </p>
+                                    </div>
+                                  </div>
+
+                                  <p className="mt-3 text-sm text-slate-700">
+                                    Distance: {snapshot.distanceMeters !== null ? `${snapshot.distanceMeters.toFixed(2)} m` : 'N/A'}
                                   </p>
                                 </div>
-
-                                <div>
-                                  <p className="text-xs font-semibold text-slate-600">Provider point</p>
-                                  <p className="mt-1 text-sm text-slate-700">
-                                    Lat/Lng: {formatCoordinate(snapshot.provider.latitude)}, {formatCoordinate(snapshot.provider.longitude)}
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    Accuracy: {snapshot.provider.accuracyMeters !== null ? `${snapshot.provider.accuracyMeters.toFixed(2)} m` : 'N/A'}
-                                  </p>
-                                  <p className="text-xs text-slate-500">
-                                    Captured: {formatEvidenceDateTime(snapshot.provider.capturedAt)}
-                                  </p>
-                                </div>
-                              </div>
-
-                              <p className="mt-3 text-sm text-slate-700">
-                                Distance: {snapshot.distanceMeters !== null ? `${snapshot.distanceMeters.toFixed(2)} m` : 'N/A'}
-                              </p>
-                            </div>
-                          );
-                        })}
-                      </div>
+                              );
+                            })}
+                          </div>
+                        )}
+                      </>
                     )}
                   </div>
 
