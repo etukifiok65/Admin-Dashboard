@@ -617,7 +617,7 @@ export const FinancialPage: React.FC = () => {
                               ₦{log.amount.toLocaleString()}
                             </td>
                             <td className="px-6 py-4 text-xs font-mono text-slate-600">
-                              {log.related_appointment_id.substring(0, 8)}...
+                              {log.related_appointment_id ? `${log.related_appointment_id.substring(0, 8)}...` : '—'}
                             </td>
                             <td className="px-6 py-4 text-sm text-slate-600">
                               {log.description || '—'}
