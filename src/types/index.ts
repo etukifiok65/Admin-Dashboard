@@ -195,6 +195,34 @@ export interface AppointmentDetails extends Appointment {
   };
 }
 
+export interface AppointmentLocationDisputeSnapshotRow {
+  time_bucket: string;
+  patient_latitude: number | null;
+  patient_longitude: number | null;
+  patient_accuracy_meters: number | null;
+  patient_captured_at: string | null;
+  provider_latitude: number | null;
+  provider_longitude: number | null;
+  provider_accuracy_meters: number | null;
+  provider_captured_at: string | null;
+  distance_meters: number | null;
+}
+
+export interface AppointmentLocationPointEvidence {
+  latitude: number | null;
+  longitude: number | null;
+  accuracyMeters: number | null;
+  capturedAt: string | null;
+}
+
+export interface AppointmentLocationDisputeSnapshot {
+  timeBucket: string;
+  patient: AppointmentLocationPointEvidence;
+  provider: AppointmentLocationPointEvidence;
+  distanceMeters: number | null;
+  hasBothPoints: boolean;
+}
+
 // Transaction
 export interface Transaction {
   id: string;

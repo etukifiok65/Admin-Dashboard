@@ -9,6 +9,8 @@ import type {
   ProviderDocument,
   Appointment,
   AppointmentDetails,
+  AppointmentLocationDisputeSnapshot,
+  AppointmentLocationDisputeSnapshotRow,
   ListResponse,
   PaginationOptions,
   FinancialMetrics,
@@ -476,6 +478,76 @@ class AdminDashboardService {
     } catch (error) {
       console.error('Error fetching appointment details:', error);
       return null;
+    }
+  }
+
+  /**
+   * Get appointment location dispute evidence snapshots
+   */
+  async getAppointmentLocationDisputeSnapshots(
+    appointmentId: string,
+    bucketMinutes: number = 5
+  ): Promise<AppointmentLocationDisputeSnapshot[]> {
+    try {
+      const normalizedBucketMinutes = [5, 10, 15].includes(bucketMinutes)
+        ? bucketMinutes
+        : 5;
+
+      const { data, error } = await supabase.rpc('get_appointment_location_dispute_snapshots', {
+        p_appointment_id: appointmentId,
+        p_bucket_minutes: normalizedBucketMinutes,
+      });
+
+      if (error) {
+        throw new Error(error.message || 'Failed to fetch appointment location evidence');
+      }
+
+      if (!Array.isArray(data)) {
+        return [];
+      }
+
+      const toNullableNumber = (value: unknown): number | null => {
+        if (value === null || value === undefined) return null;
+        const parsed = typeof value === 'number' ? value : Number(value);
+        return Number.isFinite(parsed) ? parsed : null;
+      };
+
+      return (data as AppointmentLocationDisputeSnapshotRow[]).map((snapshot) => {
+        const patientLatitude = toNullableNumber(snapshot.patient_latitude);
+        const patientLongitude = toNullableNumber(snapshot.patient_longitude);
+        const providerLatitude = toNullableNumber(snapshot.provider_latitude);
+        const providerLongitude = toNullableNumber(snapshot.provider_longitude);
+
+        const hasBothPoints =
+          patientLatitude !== null &&
+          patientLongitude !== null &&
+          providerLatitude !== null &&
+          providerLongitude !== null;
+
+        return {
+          timeBucket: snapshot.time_bucket,
+          patient: {
+            latitude: patientLatitude,
+            longitude: patientLongitude,
+            accuracyMeters: toNullableNumber(snapshot.patient_accuracy_meters),
+            capturedAt: snapshot.patient_captured_at || null,
+          },
+          provider: {
+            latitude: providerLatitude,
+            longitude: providerLongitude,
+            accuracyMeters: toNullableNumber(snapshot.provider_accuracy_meters),
+            capturedAt: snapshot.provider_captured_at || null,
+          },
+          distanceMeters: toNullableNumber(snapshot.distance_meters),
+          hasBothPoints,
+        };
+      });
+    } catch (error) {
+      console.error('Error fetching appointment location dispute snapshots:', error);
+      if (error instanceof Error) {
+        throw error;
+      }
+      throw new Error('Failed to fetch appointment location evidence');
     }
   }
 
