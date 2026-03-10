@@ -2789,7 +2789,7 @@ class AdminDashboardService {
     options: PaginationOptions,
     params?: {
       search?: string;
-      status?: 'all' | 'new';
+      status?: 'all' | 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired';
       sort?: 'newest' | 'oldest';
       jobId?: string;
     }
@@ -2856,6 +2856,100 @@ class AdminDashboardService {
         throw new Error(error.message || 'Failed to fetch job applications');
       }
       throw new Error('Failed to fetch job applications');
+    }
+  }
+
+  /**
+   * Create signed URL for a job application resume path
+   */
+  async getJobApplicationResumeUrl(storagePath: string): Promise<string | null> {
+    try {
+      if (!storagePath || !storagePath.trim()) {
+        return null;
+      }
+
+      if (/^https?:\/\//i.test(storagePath)) {
+        return storagePath;
+      }
+
+      const cleanPath = storagePath.trim().replace(/^\/+/, '');
+
+      const trySignedUrl = async (bucket: string, path: string): Promise<string | null> => {
+        const { data, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60 * 10);
+        if (error || !data?.signedUrl) {
+          return null;
+        }
+        return data.signedUrl;
+      };
+
+      const pathParts = cleanPath.split('/');
+      if (pathParts.length > 1) {
+        const firstSegment = pathParts[0];
+        const remainingPath = pathParts.slice(1).join('/');
+        const direct = await trySignedUrl(firstSegment, remainingPath);
+        if (direct) {
+          return direct;
+        }
+      }
+
+      const candidateBuckets = ['job-applications', 'job-application-resumes', 'resumes'];
+      for (const bucket of candidateBuckets) {
+        const normalized = cleanPath.startsWith(`${bucket}/`)
+          ? cleanPath.replace(new RegExp(`^${bucket}/`), '')
+          : cleanPath;
+        const signed = await trySignedUrl(bucket, normalized);
+        if (signed) {
+          return signed;
+        }
+      }
+
+      return null;
+    } catch (error) {
+      console.error('Error creating job application resume signed URL:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Update status for a job application
+   */
+  async updateJobApplicationStatus(
+    id: string,
+    status: 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired'
+  ): Promise<JobApplication | null> {
+    try {
+      const { data, error } = await supabase
+        .from('job_applications')
+        .update({ status })
+        .eq('id', id)
+        .select('*')
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return {
+        id: data.id,
+        job_id: data.job_id,
+        full_name: data.full_name,
+        email: data.email,
+        phone: data.phone || undefined,
+        address: data.address || undefined,
+        desired_salary: data.desired_salary || undefined,
+        experience_summary: data.experience_summary,
+        cover_letter: data.cover_letter || undefined,
+        privacy_consent: Boolean(data.privacy_consent),
+        resume_file_path: data.resume_file_path,
+        status: data.status,
+        created_at: data.created_at,
+      };
+    } catch (error) {
+      console.error('Error updating job application status:', error);
+      if (error instanceof Error) {
+        throw new Error(error.message || 'Failed to update application status');
+      }
+      throw new Error('Failed to update application status');
     }
   }
 }

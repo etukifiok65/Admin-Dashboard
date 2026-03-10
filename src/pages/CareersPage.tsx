@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import type {
   JobApplication,
+  JobApplicationStatus,
   JobEmploymentType,
   JobOpening,
   JobOpeningInput,
@@ -13,12 +14,11 @@ import { adminDashboardService } from '@services/adminDashboard.service';
 import { format } from 'date-fns';
 
 const ITEMS_PER_PAGE = 10;
+const APPLICATION_STATUSES: JobApplicationStatus[] = ['new', 'reviewing', 'shortlisted', 'rejected', 'hired'];
 
 type CareersTab = 'openings' | 'applications';
 
 type OpeningFormState = {
-  id: string;
-  slug: string;
   title: string;
   department: string;
   location: string;
@@ -32,8 +32,6 @@ type OpeningFormState = {
 };
 
 const defaultOpeningForm: OpeningFormState = {
-  id: '',
-  slug: '',
   title: '',
   department: '',
   location: '',
@@ -78,9 +76,14 @@ export const CareersPage: React.FC = () => {
   const [jobApplications, setJobApplications] = useState<JobApplication[]>([]);
   const [selectedApplicationId, setSelectedApplicationId] = useState<string | null>(null);
   const [applicationsSearch, setApplicationsSearch] = useState('');
-  const [applicationStatusFilter, setApplicationStatusFilter] = useState<'all' | 'new'>('all');
+  const [applicationStatusFilter, setApplicationStatusFilter] = useState<'all' | JobApplicationStatus>('all');
   const [applicationsSort, setApplicationsSort] = useState<'newest' | 'oldest'>('newest');
   const [applicationsJobFilter, setApplicationsJobFilter] = useState<string>('all');
+  const [isStatusUpdating, setIsStatusUpdating] = useState(false);
+  const [isOpeningResume, setIsOpeningResume] = useState(false);
+  const [isResumeModalOpen, setIsResumeModalOpen] = useState(false);
+  const [resumePreviewUrl, setResumePreviewUrl] = useState<string | null>(null);
+  const [resumeFilePath, setResumeFilePath] = useState<string>('');
 
   const [isOpeningModalOpen, setIsOpeningModalOpen] = useState(false);
   const [editingOpeningId, setEditingOpeningId] = useState<string | null>(null);
@@ -206,8 +209,6 @@ export const CareersPage: React.FC = () => {
   const openEditOpeningModal = (opening: JobOpening) => {
     setEditingOpeningId(opening.id);
     setOpeningForm({
-      id: opening.id,
-      slug: opening.slug,
       title: opening.title,
       department: opening.department,
       location: opening.location,
@@ -226,8 +227,8 @@ export const CareersPage: React.FC = () => {
     event.preventDefault();
     setError(null);
 
-    const generatedSlug = openingForm.slug.trim() || slugify(openingForm.title);
-    const generatedId = openingForm.id.trim() || generatedSlug || `job-${Date.now()}`;
+    const generatedSlug = slugify(openingForm.title);
+    const generatedId = editingOpeningId || generatedSlug || `job-${Date.now()}`;
 
     const payload: JobOpeningInput = {
       id: generatedId,
@@ -252,7 +253,19 @@ export const CareersPage: React.FC = () => {
     setIsSavingOpening(true);
     try {
       if (editingOpeningId) {
-        await adminDashboardService.updateJobOpening(editingOpeningId, payload);
+        await adminDashboardService.updateJobOpening(editingOpeningId, {
+          slug: payload.slug,
+          title: payload.title,
+          department: payload.department,
+          location: payload.location,
+          workplace_type: payload.workplace_type,
+          employment_type: payload.employment_type,
+          summary: payload.summary,
+          responsibilities: payload.responsibilities,
+          requirements: payload.requirements,
+          benefits: payload.benefits,
+          is_published: payload.is_published,
+        });
       } else {
         await adminDashboardService.createJobOpening(payload);
       }
@@ -312,6 +325,60 @@ export const CareersPage: React.FC = () => {
   const cancelDeleteOpening = () => {
     setIsDeleteConfirmOpen(false);
     setPendingDeleteOpening(null);
+  };
+
+  const handleOpenResume = async (application: JobApplication) => {
+    setError(null);
+    setIsOpeningResume(true);
+
+    try {
+      const resumeUrl = await adminDashboardService.getJobApplicationResumeUrl(application.resume_file_path);
+
+      if (!resumeUrl) {
+        throw new Error('Resume file could not be loaded.');
+      }
+
+      setResumePreviewUrl(resumeUrl);
+      setResumeFilePath(application.resume_file_path);
+      setIsResumeModalOpen(true);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to open resume';
+      setError(message);
+    } finally {
+      setIsOpeningResume(false);
+    }
+  };
+
+  const closeResumeModal = () => {
+    setIsResumeModalOpen(false);
+    setResumePreviewUrl(null);
+    setResumeFilePath('');
+  };
+
+  const handleApplicationStatusChange = async (
+    applicationId: string,
+    status: JobApplicationStatus
+  ) => {
+    setError(null);
+    setIsStatusUpdating(true);
+
+    try {
+      const updated = await adminDashboardService.updateJobApplicationStatus(applicationId, status);
+      if (!updated) {
+        throw new Error('Failed to update status.');
+      }
+
+      setJobApplications((previous) =>
+        previous.map((application) =>
+          application.id === applicationId ? { ...application, status: updated.status } : application
+        )
+      );
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Failed to update status';
+      setError(message);
+    } finally {
+      setIsStatusUpdating(false);
+    }
   };
 
   const renderOpeningsView = () => (
@@ -488,7 +555,11 @@ export const CareersPage: React.FC = () => {
             className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
           >
             <option value="all">All statuses</option>
-            <option value="new">New</option>
+            {APPLICATION_STATUSES.map((status) => (
+              <option key={status} value={status}>
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </option>
+            ))}
           </select>
 
           <select
@@ -641,18 +712,37 @@ export const CareersPage: React.FC = () => {
             )}
             <div>
               <p className="text-xs font-semibold text-slate-500">Resume</p>
-              {selectedApplication.resume_file_path.startsWith('http') ? (
-                <a
-                  href={selectedApplication.resume_file_path}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-brand-700 underline"
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleOpenResume(selectedApplication)}
+                  disabled={isOpeningResume}
+                  className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 transition hover:bg-brand-100 disabled:opacity-60"
                 >
-                  Open resume
-                </a>
-              ) : (
-                <p className="break-all text-xs text-slate-600">{selectedApplication.resume_file_path}</p>
-              )}
+                  {isOpeningResume ? 'Opening...' : 'View Resume'}
+                </button>
+              </div>
+              <p className="mt-1 break-all text-xs text-slate-500">{selectedApplication.resume_file_path}</p>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-slate-500">Application Status</p>
+              <select
+                value={selectedApplication.status}
+                onChange={(event) =>
+                  handleApplicationStatusChange(
+                    selectedApplication.id,
+                    event.target.value as JobApplicationStatus
+                  )
+                }
+                disabled={isStatusUpdating}
+                className="mt-1 w-full rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-700 focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:opacity-60"
+              >
+                {APPLICATION_STATUSES.map((status) => (
+                  <option key={status} value={status}>
+                    {status.charAt(0).toUpperCase() + status.slice(1)}
+                  </option>
+                ))}
+              </select>
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-500">Job Opening</p>
@@ -720,13 +810,16 @@ export const CareersPage: React.FC = () => {
 
       {isOpeningModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-lg bg-white p-6 shadow-xl">
-            <h2 className="text-xl font-semibold text-slate-900">
-              {editingOpeningId ? 'Edit Job Opening' : 'Add Job Opening'}
-            </h2>
+          <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-lg bg-white shadow-xl">
+            <div className="border-b border-slate-200 px-6 py-4">
+              <h2 className="text-xl font-semibold text-slate-900">
+                {editingOpeningId ? 'Edit Job Opening' : 'Add Job Opening'}
+              </h2>
+            </div>
 
-            <form onSubmit={handleSaveOpening} className="mt-4 space-y-4">
-              <div className="grid gap-4 md:grid-cols-2">
+            <form onSubmit={handleSaveOpening} className="flex min-h-0 flex-1 flex-col">
+              <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 py-4">
+                <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">Title *</label>
                   <input
@@ -735,6 +828,7 @@ export const CareersPage: React.FC = () => {
                     onChange={(event) => setOpeningForm((prev) => ({ ...prev, title: event.target.value }))}
                     className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
                   />
+                  <p className="mt-1 text-xs text-slate-500">ID and slug are generated automatically from this title.</p>
                 </div>
                 <div>
                   <label className="mb-1 block text-sm font-medium text-slate-700">Department *</label>
@@ -790,27 +884,6 @@ export const CareersPage: React.FC = () => {
                     Visible on careers site
                   </label>
                 </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">ID *</label>
-                  <input
-                    required
-                    disabled={Boolean(editingOpeningId)}
-                    value={openingForm.id}
-                    onChange={(event) => setOpeningForm((prev) => ({ ...prev, id: event.target.value }))}
-                    placeholder="Auto-generated from title if empty"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100 disabled:bg-slate-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Slug *</label>
-                  <input
-                    required
-                    value={openingForm.slug}
-                    onChange={(event) => setOpeningForm((prev) => ({ ...prev, slug: event.target.value }))}
-                    placeholder="Auto-generated from title if empty"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                  />
-                </div>
               </div>
 
               <div>
@@ -824,40 +897,41 @@ export const CareersPage: React.FC = () => {
                 />
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3">
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Responsibilities</label>
-                  <textarea
-                    rows={5}
-                    value={openingForm.responsibilitiesText}
-                    onChange={(event) => setOpeningForm((prev) => ({ ...prev, responsibilitiesText: event.target.value }))}
-                    placeholder="One item per line"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Requirements</label>
-                  <textarea
-                    rows={5}
-                    value={openingForm.requirementsText}
-                    onChange={(event) => setOpeningForm((prev) => ({ ...prev, requirementsText: event.target.value }))}
-                    placeholder="One item per line"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                  />
-                </div>
-                <div>
-                  <label className="mb-1 block text-sm font-medium text-slate-700">Benefits</label>
-                  <textarea
-                    rows={5}
-                    value={openingForm.benefitsText}
-                    onChange={(event) => setOpeningForm((prev) => ({ ...prev, benefitsText: event.target.value }))}
-                    placeholder="One item per line"
-                    className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                  />
-                </div>
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Responsibilities</label>
+                <textarea
+                  rows={4}
+                  value={openingForm.responsibilitiesText}
+                  onChange={(event) => setOpeningForm((prev) => ({ ...prev, responsibilitiesText: event.target.value }))}
+                  placeholder="One item per line"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
               </div>
 
-              <div className="mt-6 flex justify-end gap-3">
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Requirements</label>
+                <textarea
+                  rows={4}
+                  value={openingForm.requirementsText}
+                  onChange={(event) => setOpeningForm((prev) => ({ ...prev, requirementsText: event.target.value }))}
+                  placeholder="One item per line"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+
+              <div>
+                <label className="mb-1 block text-sm font-medium text-slate-700">Benefits</label>
+                <textarea
+                  rows={4}
+                  value={openingForm.benefitsText}
+                  onChange={(event) => setOpeningForm((prev) => ({ ...prev, benefitsText: event.target.value }))}
+                  placeholder="One item per line"
+                  className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                />
+              </div>
+              </div>
+
+              <div className="flex justify-end gap-3 border-t border-slate-200 px-6 py-4">
                 <button
                   type="button"
                   onClick={() => {
@@ -877,6 +951,54 @@ export const CareersPage: React.FC = () => {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {isResumeModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[92vh] w-full max-w-4xl flex-col rounded-lg bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-4">
+              <h2 className="text-lg font-semibold text-slate-900">Resume Preview</h2>
+              <button
+                type="button"
+                onClick={closeResumeModal}
+                className="rounded-md border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-600 hover:bg-slate-50"
+              >
+                Close
+              </button>
+            </div>
+
+            <div className="flex items-center gap-2 border-b border-slate-100 px-6 py-3">
+              {resumePreviewUrl && (
+                <a
+                  href={resumePreviewUrl}
+                  download
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700 transition hover:bg-brand-100"
+                >
+                  Download Resume
+                </a>
+              )}
+              <p className="truncate text-xs text-slate-500" title={resumeFilePath}>
+                {resumeFilePath}
+              </p>
+            </div>
+
+            <div className="min-h-[360px] flex-1 overflow-y-auto bg-slate-50 p-4">
+              {resumePreviewUrl ? (
+                <iframe
+                  title="Resume preview"
+                  src={resumePreviewUrl}
+                  className="h-[70vh] w-full rounded border border-slate-200 bg-white"
+                />
+              ) : (
+                <div className="flex h-full items-center justify-center text-sm text-slate-500">
+                  Resume preview unavailable.
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

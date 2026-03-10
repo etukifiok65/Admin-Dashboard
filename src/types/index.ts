@@ -360,7 +360,7 @@ export interface JobOpeningInput {
   is_published?: boolean;
 }
 
-export type JobApplicationStatus = 'new';
+export type JobApplicationStatus = 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired';
 
 export interface JobApplication {
   id: string;
