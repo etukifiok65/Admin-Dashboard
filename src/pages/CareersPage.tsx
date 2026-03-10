@@ -722,7 +722,6 @@ export const CareersPage: React.FC = () => {
                   {isOpeningResume ? 'Opening...' : 'View Resume'}
                 </button>
               </div>
-              <p className="mt-1 break-all text-xs text-slate-500">{selectedApplication.resume_file_path}</p>
             </div>
             <div>
               <p className="text-xs font-semibold text-slate-500">Application Status</p>
