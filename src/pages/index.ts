@@ -9,3 +9,4 @@ export * from './AnalyticsPage';
 export * from './SettingsPage';
 export * from './NotificationsPage';
 export * from './SupportMessagesPage';
+export * from './CareersPage';

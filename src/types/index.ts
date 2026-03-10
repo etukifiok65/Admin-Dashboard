@@ -325,6 +325,59 @@ export interface PlatformRevenueLog {
   created_at: string;
 }
 
+export type JobWorkplaceType = 'On-site' | 'Hybrid' | 'Remote';
+export type JobEmploymentType = 'Full-Time' | 'Part-Time' | 'Contract';
+
+export interface JobOpening {
+  id: string;
+  slug: string;
+  title: string;
+  department: string;
+  location: string;
+  workplace_type: JobWorkplaceType;
+  employment_type: JobEmploymentType;
+  summary: string;
+  responsibilities: string[];
+  requirements: string[];
+  benefits: string[];
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface JobOpeningInput {
+  id: string;
+  slug: string;
+  title: string;
+  department: string;
+  location: string;
+  workplace_type: JobWorkplaceType;
+  employment_type: JobEmploymentType;
+  summary: string;
+  responsibilities: string[];
+  requirements: string[];
+  benefits: string[];
+  is_published?: boolean;
+}
+
+export type JobApplicationStatus = 'new';
+
+export interface JobApplication {
+  id: string;
+  job_id: string;
+  full_name: string;
+  email: string;
+  phone?: string;
+  address?: string;
+  desired_salary?: string;
+  experience_summary: string;
+  cover_letter?: string;
+  privacy_consent: boolean;
+  resume_file_path: string;
+  status: JobApplicationStatus;
+  created_at: string;
+}
+
 // Support Messages Types (from messages table)
 export interface SupportMessage {
   id: number;

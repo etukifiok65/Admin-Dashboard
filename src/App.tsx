@@ -12,6 +12,7 @@ import {
   AnalyticsPage,
   NotificationsPage,
   SupportMessagesPage,
+  CareersPage,
   SettingsPage,
 } from '@pages/index';
 import './styles/index.css';
@@ -166,6 +167,14 @@ function App() {
           element={
             <RoleBasedRoute requiredPage="support-messages">
               <SupportMessagesPage />
+            </RoleBasedRoute>
+          }
+        />
+        <Route
+          path="/careers"
+          element={
+            <RoleBasedRoute requiredPage="careers">
+              <CareersPage />
             </RoleBasedRoute>
           }
         />

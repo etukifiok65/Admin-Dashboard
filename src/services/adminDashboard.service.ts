@@ -17,6 +17,9 @@ import type {
   ProviderPayout,
   TransactionRecord,
   PlatformRevenueLog,
+  JobOpening,
+  JobOpeningInput,
+  JobApplication,
   SupportMessage,
   SupportMessageDetails,
   AppointmentsByService,
@@ -2590,6 +2593,269 @@ class AdminDashboardService {
     } catch (error) {
       console.error('Error updating notification status:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Get job openings with pagination
+   */
+  async getJobOpenings(
+    options: PaginationOptions,
+    params?: {
+      search?: string;
+      published?: 'all' | 'published' | 'unpublished';
+      sort?: 'newest' | 'oldest';
+    }
+  ): Promise<ListResponse<JobOpening> | null> {
+    try {
+      let query = supabase
+        .from('job_openings')
+        .select('*', { count: 'exact' });
+
+      if (params?.published === 'published') {
+        query = query.eq('is_published', true);
+      } else if (params?.published === 'unpublished') {
+        query = query.eq('is_published', false);
+      }
+
+      if (params?.search) {
+        const safeSearch = sanitizeSearchTerm(params.search);
+        if (safeSearch) {
+          query = query.or(
+            `title.ilike.%${safeSearch}%,department.ilike.%${safeSearch}%,location.ilike.%${safeSearch}%,summary.ilike.%${safeSearch}%`
+          );
+        }
+      }
+
+      const sortAscending = params?.sort === 'oldest';
+      const { data, count, error } = await query
+        .order('created_at', { ascending: sortAscending })
+        .range(
+          (options.page - 1) * options.pageSize,
+          options.page * options.pageSize - 1
+        );
+
+      if (error) {
+        throw error;
+      }
+
+      const openings: JobOpening[] = (data || []).map((opening: any) => ({
+        id: opening.id,
+        slug: opening.slug,
+        title: opening.title,
+        department: opening.department,
+        location: opening.location,
+        workplace_type: opening.workplace_type,
+        employment_type: opening.employment_type,
+        summary: opening.summary,
+        responsibilities: Array.isArray(opening.responsibilities) ? opening.responsibilities : [],
+        requirements: Array.isArray(opening.requirements) ? opening.requirements : [],
+        benefits: Array.isArray(opening.benefits) ? opening.benefits : [],
+        is_published: Boolean(opening.is_published),
+        created_at: opening.created_at,
+        updated_at: opening.updated_at,
+      }));
+
+      return {
+        data: openings,
+        total: count || 0,
+        page: options.page,
+        pageSize: options.pageSize,
+      };
+    } catch (error) {
+      console.error('Error fetching job openings:', error);
+      if (error instanceof Error) {
+        throw new Error(error.message || 'Failed to fetch job openings');
+      }
+      throw new Error('Failed to fetch job openings');
+    }
+  }
+
+  /**
+   * Create a new job opening
+   */
+  async createJobOpening(input: JobOpeningInput): Promise<JobOpening | null> {
+    try {
+      const { data, error } = await supabase
+        .from('job_openings')
+        .insert({
+          ...input,
+          is_published: typeof input.is_published === 'boolean' ? input.is_published : true,
+        })
+        .select('*')
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return {
+        id: data.id,
+        slug: data.slug,
+        title: data.title,
+        department: data.department,
+        location: data.location,
+        workplace_type: data.workplace_type,
+        employment_type: data.employment_type,
+        summary: data.summary,
+        responsibilities: Array.isArray(data.responsibilities) ? data.responsibilities : [],
+        requirements: Array.isArray(data.requirements) ? data.requirements : [],
+        benefits: Array.isArray(data.benefits) ? data.benefits : [],
+        is_published: Boolean(data.is_published),
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+    } catch (error) {
+      console.error('Error creating job opening:', error);
+      if (error instanceof Error) {
+        throw new Error(error.message || 'Failed to create job opening');
+      }
+      throw new Error('Failed to create job opening');
+    }
+  }
+
+  /**
+   * Update an existing job opening
+   */
+  async updateJobOpening(
+    id: string,
+    updates: Partial<JobOpeningInput>
+  ): Promise<JobOpening | null> {
+    try {
+      const { data, error } = await supabase
+        .from('job_openings')
+        .update(updates)
+        .eq('id', id)
+        .select('*')
+        .single();
+
+      if (error) {
+        throw error;
+      }
+
+      return {
+        id: data.id,
+        slug: data.slug,
+        title: data.title,
+        department: data.department,
+        location: data.location,
+        workplace_type: data.workplace_type,
+        employment_type: data.employment_type,
+        summary: data.summary,
+        responsibilities: Array.isArray(data.responsibilities) ? data.responsibilities : [],
+        requirements: Array.isArray(data.requirements) ? data.requirements : [],
+        benefits: Array.isArray(data.benefits) ? data.benefits : [],
+        is_published: Boolean(data.is_published),
+        created_at: data.created_at,
+        updated_at: data.updated_at,
+      };
+    } catch (error) {
+      console.error('Error updating job opening:', error);
+      if (error instanceof Error) {
+        throw new Error(error.message || 'Failed to update job opening');
+      }
+      throw new Error('Failed to update job opening');
+    }
+  }
+
+  /**
+   * Delete a job opening
+   */
+  async deleteJobOpening(id: string): Promise<boolean> {
+    try {
+      const { error } = await supabase
+        .from('job_openings')
+        .delete()
+        .eq('id', id);
+
+      if (error) {
+        throw error;
+      }
+
+      return true;
+    } catch (error) {
+      console.error('Error deleting job opening:', error);
+      if (error instanceof Error) {
+        throw new Error(error.message || 'Failed to delete job opening');
+      }
+      throw new Error('Failed to delete job opening');
+    }
+  }
+
+  /**
+   * Get job applications with pagination
+   */
+  async getJobApplications(
+    options: PaginationOptions,
+    params?: {
+      search?: string;
+      status?: 'all' | 'new';
+      sort?: 'newest' | 'oldest';
+      jobId?: string;
+    }
+  ): Promise<ListResponse<JobApplication> | null> {
+    try {
+      let query = supabase
+        .from('job_applications')
+        .select('*', { count: 'exact' });
+
+      if (params?.status && params.status !== 'all') {
+        query = query.eq('status', params.status);
+      }
+
+      if (params?.jobId) {
+        query = query.eq('job_id', params.jobId);
+      }
+
+      if (params?.search) {
+        const safeSearch = sanitizeSearchTerm(params.search);
+        if (safeSearch) {
+          query = query.or(
+            `full_name.ilike.%${safeSearch}%,email.ilike.%${safeSearch}%,experience_summary.ilike.%${safeSearch}%`
+          );
+        }
+      }
+
+      const sortAscending = params?.sort === 'oldest';
+      const { data, count, error } = await query
+        .order('created_at', { ascending: sortAscending })
+        .range(
+          (options.page - 1) * options.pageSize,
+          options.page * options.pageSize - 1
+        );
+
+      if (error) {
+        throw error;
+      }
+
+      const applications: JobApplication[] = (data || []).map((application: any) => ({
+        id: application.id,
+        job_id: application.job_id,
+        full_name: application.full_name,
+        email: application.email,
+        phone: application.phone || undefined,
+        address: application.address || undefined,
+        desired_salary: application.desired_salary || undefined,
+        experience_summary: application.experience_summary,
+        cover_letter: application.cover_letter || undefined,
+        privacy_consent: Boolean(application.privacy_consent),
+        resume_file_path: application.resume_file_path,
+        status: application.status,
+        created_at: application.created_at,
+      }));
+
+      return {
+        data: applications,
+        total: count || 0,
+        page: options.page,
+        pageSize: options.pageSize,
+      };
+    } catch (error) {
+      console.error('Error fetching job applications:', error);
+      if (error instanceof Error) {
+        throw new Error(error.message || 'Failed to fetch job applications');
+      }
+      throw new Error('Failed to fetch job applications');
     }
   }
 }

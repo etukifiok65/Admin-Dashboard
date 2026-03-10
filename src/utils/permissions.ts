@@ -8,6 +8,7 @@ export type PagePath =
   | 'appointments' 
   | 'financial' 
   | 'analytics' 
+  | 'careers'
   | 'notifications'
   | 'support-messages'
   | 'settings';
@@ -24,6 +25,7 @@ const rolePermissions: Record<UserRole, PagePath[]> = {
     'appointments',
     'financial',
     'analytics',
+    'careers',
     'notifications',
     'support-messages',
     'settings',
@@ -36,6 +38,7 @@ const rolePermissions: Record<UserRole, PagePath[]> = {
     'appointments',
     'financial',
     'analytics',
+    'careers',
     'notifications',
     'support-messages',
   ],
