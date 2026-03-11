@@ -136,7 +136,7 @@ export const DashboardPage: React.FC = () => {
               <div className="flex items-center justify-between">
                 <div>
                   <h2 className="text-lg font-semibold text-slate-900">Platform Snapshot</h2>
-                  <p className="mt-1 text-sm text-slate-500">Key health indicators for the platform.</p>
+                  <p className="mt-1 text-sm text-slate-500">Key activity indicators for the platform.</p>
                 </div>
                 <div className="rounded-full border border-brand-100 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-700">
                   Live metrics
