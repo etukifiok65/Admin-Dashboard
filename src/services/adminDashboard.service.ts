@@ -33,6 +33,8 @@ import type {
   ServiceTypeConfig,
   AppointmentStatusConfig,
   AuditLog,
+  WaitlistEntry,
+  WaitlistStatus,
 } from '@app-types/index';
 
 const SEARCH_INPUT_MAX_LENGTH = 80;
@@ -2950,6 +2952,125 @@ class AdminDashboardService {
         throw new Error(error.message || 'Failed to update application status');
       }
       throw new Error('Failed to update application status');
+    }
+  }
+
+  /**
+   * Get paginated waitlist entries with optional search, status filter, and sort
+   */
+  async getWaitlist(options: {
+    page: number;
+    pageSize: number;
+    search?: string;
+    status?: WaitlistStatus;
+    sortBy?: 'created_at';
+    sortDir?: 'asc' | 'desc';
+  }): Promise<{ data: WaitlistEntry[]; total: number }> {
+    const { page, pageSize, search, status, sortBy = 'created_at', sortDir = 'desc' } = options;
+    const from = (page - 1) * pageSize;
+    const to = from + pageSize - 1;
+
+    try {
+      let query = supabase
+        .from('waitlist')
+        .select('*', { count: 'exact' })
+        .range(from, to)
+        .order(sortBy, { ascending: sortDir === 'asc' });
+
+      if (search) {
+        const safe = sanitizeSearchTerm(search);
+        query = query.or(`email.ilike.%${safe}%,"fullName".ilike.%${safe}%`);
+      }
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      const { data, error, count } = await query;
+      if (error) throw error;
+
+      return {
+        data: (data ?? []).map(r => ({
+          id: r.id,
+          email: r.email,
+          fullName: r.fullName,
+          status: r.status as WaitlistStatus,
+          joined_at: r.joined_at ?? null,
+          created_at: r.created_at,
+          updated_at: r.updated_at ?? null,
+        })),
+        total: count ?? 0,
+      };
+    } catch (error) {
+      console.error('Error fetching waitlist:', error);
+      if (error instanceof Error) {
+        throw new Error(error.message || 'Failed to fetch waitlist');
+      }
+      throw new Error('Failed to fetch waitlist');
+    }
+  }
+
+  /**
+   * Update the status of a waitlist entry
+   */
+  async updateWaitlistStatus(id: number, status: WaitlistStatus): Promise<void> {
+    try {
+      const { error } = await supabase
+        .from('waitlist')
+        .update({ status, updated_at: new Date().toISOString() })
+        .eq('id', id);
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error updating waitlist status:', error);
+      if (error instanceof Error) {
+        throw new Error(error.message || 'Failed to update waitlist status');
+      }
+      throw new Error('Failed to update waitlist status');
+    }
+  }
+
+  /**
+   * Get all waitlist entries matching current filters for CSV export (no pagination)
+   */
+  async getWaitlistForExport(options: {
+    search?: string;
+    status?: WaitlistStatus;
+    sortBy?: 'created_at';
+    sortDir?: 'asc' | 'desc';
+  }): Promise<WaitlistEntry[]> {
+    const { search, status, sortBy = 'created_at', sortDir = 'desc' } = options;
+
+    try {
+      let query = supabase
+        .from('waitlist')
+        .select('*')
+        .order(sortBy, { ascending: sortDir === 'asc' });
+
+      if (search) {
+        const safe = sanitizeSearchTerm(search);
+        query = query.or(`email.ilike.%${safe}%,"fullName".ilike.%${safe}%`);
+      }
+      if (status) {
+        query = query.eq('status', status);
+      }
+
+      const { data, error } = await query;
+      if (error) throw error;
+
+      return (data ?? []).map(r => ({
+        id: r.id,
+        email: r.email,
+        fullName: r.fullName,
+        status: r.status as WaitlistStatus,
+        joined_at: r.joined_at ?? null,
+        created_at: r.created_at,
+        updated_at: r.updated_at ?? null,
+      }));
+    } catch (error) {
+      console.error('Error exporting waitlist:', error);
+      if (error instanceof Error) {
+        throw new Error(error.message || 'Failed to export waitlist');
+      }
+      throw new Error('Failed to export waitlist');
     }
   }
 }

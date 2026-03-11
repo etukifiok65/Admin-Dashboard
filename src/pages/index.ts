@@ -10,3 +10,4 @@ export * from './SettingsPage';
 export * from './NotificationsPage';
 export * from './SupportMessagesPage';
 export * from './CareersPage';
+export * from './WaitlistPage';

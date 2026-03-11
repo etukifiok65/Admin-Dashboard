@@ -13,6 +13,7 @@ import {
   NotificationsPage,
   SupportMessagesPage,
   CareersPage,
+  WaitlistPage,
   SettingsPage,
 } from '@pages/index';
 import './styles/index.css';
@@ -175,6 +176,14 @@ function App() {
           element={
             <RoleBasedRoute requiredPage="careers">
               <CareersPage />
+            </RoleBasedRoute>
+          }
+        />
+        <Route
+          path="/waitlist"
+          element={
+            <RoleBasedRoute requiredPage="waitlist">
+              <WaitlistPage />
             </RoleBasedRoute>
           }
         />

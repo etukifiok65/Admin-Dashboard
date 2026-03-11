@@ -362,6 +362,18 @@ export interface JobOpeningInput {
 
 export type JobApplicationStatus = 'new' | 'reviewing' | 'shortlisted' | 'rejected' | 'hired';
 
+export type WaitlistStatus = 'pending' | 'contacted' | 'onboarded';
+
+export interface WaitlistEntry {
+  id: number;
+  email: string;
+  fullName: string;
+  status: WaitlistStatus;
+  joined_at: string | null;
+  created_at: string;
+  updated_at: string | null;
+}
+
 export interface JobApplication {
   id: string;
   job_id: string;

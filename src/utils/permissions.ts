@@ -11,7 +11,8 @@ export type PagePath =
   | 'careers'
   | 'notifications'
   | 'support-messages'
-  | 'settings';
+  | 'settings'
+  | 'waitlist';
 
 export type UserRole = 'super_admin' | 'admin' | 'moderator';
 
@@ -29,6 +30,7 @@ const rolePermissions: Record<UserRole, PagePath[]> = {
     'notifications',
     'support-messages',
     'settings',
+    'waitlist',
   ],
   admin: [
     'dashboard',
@@ -41,6 +43,7 @@ const rolePermissions: Record<UserRole, PagePath[]> = {
     'careers',
     'notifications',
     'support-messages',
+    'waitlist',
   ],
   moderator: [
     'dashboard',
@@ -49,6 +52,7 @@ const rolePermissions: Record<UserRole, PagePath[]> = {
     'verifications',
     'appointments',
     'support-messages',
+    'waitlist',
   ],
 };
 

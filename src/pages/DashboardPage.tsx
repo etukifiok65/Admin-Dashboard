@@ -215,7 +215,7 @@ export const DashboardPage: React.FC = () => {
             <div className="rounded-lg border border-slate-200 bg-white/80 p-6 shadow-sm">
               <h2 className="text-lg font-semibold text-slate-900">Quick Actions</h2>
               <p className="mt-1 text-sm text-slate-500">Jump straight to the critical workflows.</p>
-              <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-3">
+              <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <a
                   href="/verifications"
                   className="group rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md"
@@ -248,6 +248,18 @@ export const DashboardPage: React.FC = () => {
                   </p>
                   <span className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-brand-700">
                     Go to appointments →
+                  </span>
+                </a>
+                <a
+                  href="/waitlist"
+                  className="group rounded-lg border border-slate-200 bg-white px-4 py-4 shadow-sm transition hover:-translate-y-0.5 hover:border-brand-200 hover:shadow-md"
+                >
+                  <p className="text-sm font-semibold text-slate-900">View Waitlist</p>
+                  <p className="mt-2 text-xs text-slate-500">
+                    Browse and update platform waitlist entries
+                  </p>
+                  <span className="mt-4 inline-flex items-center gap-2 text-xs font-semibold text-brand-700">
+                    Go to waitlist →
                   </span>
                 </a>
               </div>
