@@ -7,7 +7,7 @@ import { format } from 'date-fns';
 const StatCard: React.FC<{
   title: string;
   value: string | number;
-  icon: string;
+  icon: React.ReactNode;
   tone: 'brand' | 'slate' | 'emerald' | 'amber';
   helper?: string;
 }> = ({ title, value, icon, tone, helper }) => {
@@ -146,28 +146,28 @@ export const DashboardPage: React.FC = () => {
                 <StatCard
                   title="Total Users"
                   value={metrics.totalUsers}
-                  icon="👥"
+                  icon={<img src="/users.png" alt="total users" className="w-5 h-5" />}
                   tone="brand"
                   helper="Patients + providers"
                 />
                 <StatCard
                   title="Active Patients"
                   value={metrics.activePatients}
-                  icon="🏥"
+                  icon={<img src="/patient.png" alt="active patients" className="w-5 h-5" />}
                   tone="emerald"
                   helper="Last 30 days"
                 />
                 <StatCard
                   title="Verified Providers"
                   value={metrics.verifiedProviders}
-                  icon="⚕️"
+                  icon={<img src="/provider.png" alt="verified providers" className="w-5 h-5" />}
                   tone="slate"
                   helper="Approved profiles"
                 />
                 <StatCard
                   title="Pending Verification"
                   value={metrics.pendingProviders + metrics.pendingPatients}
-                  icon="⏳"
+                  icon={<img src="/verification.png" alt="pending verification" className="w-5 h-5" />}
                   tone="amber"
                   helper={`${metrics.pendingProviders} providers, ${metrics.pendingPatients} patients`}
                 />
@@ -180,18 +180,18 @@ export const DashboardPage: React.FC = () => {
                 <p className="mt-1 text-sm text-slate-500">Financial performance overview.</p>
                 <div className="mt-6 grid grid-cols-1 gap-5 md:grid-cols-2">
                   <StatCard
-                    title="Today's Revenue"
-                    value={`₦${metrics.todayRevenue.toLocaleString()}`}
-                    icon="💵"
-                    tone="emerald"
-                    helper="Completed transactions"
+                  title="Today's Revenue"
+                  value={`₦${metrics.todayRevenue.toLocaleString()}`}
+                  icon={<img src="/money.png" alt="revenue" className="w-5 h-5" />}
+                  tone="emerald"
+                  helper="Completed transactions"
                   />
                   <StatCard
-                    title="This Month's Revenue"
-                    value={`₦${metrics.thisMonthRevenue.toLocaleString()}`}
-                    icon="📊"
-                    tone="brand"
-                    helper="Monthly total"
+                  title="This Month's Revenue"
+                  value={`₦${metrics.thisMonthRevenue.toLocaleString()}`}
+                  icon={<img src="/trending.png" alt="revenue" className="w-5 h-5" />}
+                  tone="brand"
+                  helper="Monthly total"
                   />
                 </div>
               </div>
@@ -203,7 +203,7 @@ export const DashboardPage: React.FC = () => {
                   <StatCard
                     title="Today's Appointments"
                     value={metrics.todayAppointments}
-                    icon="📅"
+                    icon={<img src="/appointment.png" alt="appointments" className="w-5 h-5" />}
                     tone="slate"
                     helper="Scheduled for today"
                   />
