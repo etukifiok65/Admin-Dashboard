@@ -114,7 +114,7 @@ export const LocationEvidenceMap: React.FC<LocationEvidenceMapProps> = ({
 
   const destinationPoint = useMemo<DestinationPoint | null>(() => {
     if (!isDestinationMode) return null;
-    const withDestination = orderedSnapshots.find(
+    const withDestination = [...orderedSnapshots].reverse().find(
       (snapshot) => snapshot.destination.latitude !== null && snapshot.destination.longitude !== null
     );
     if (!withDestination) return null;

@@ -41,6 +41,27 @@ const formatCoordinate = (value: number | null): string => {
   return value.toFixed(6);
 };
 
+const calculateDistanceMeters = (
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number => {
+  const toRad = (deg: number) => (deg * Math.PI) / 180;
+  const earthRadiusMeters = 6371000;
+
+  const dLat = toRad(lat2 - lat1);
+  const dLon = toRad(lon2 - lon1);
+
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) *
+    Math.sin(dLon / 2) * Math.sin(dLon / 2);
+
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return earthRadiusMeters * c;
+};
+
 const isChatConsultationAppointment = (appointment: AppointmentDetails | null): boolean => {
   if (!appointment) return false;
   const normalized = `${appointment.appointment_type || ''} ${appointment.service_type || ''}`.toLowerCase();
@@ -88,6 +109,52 @@ export const AppointmentsPage: React.FC = () => {
     () => (showAllLocationEvidenceBuckets ? sortedLocationEvidence : sortedLocationEvidence.slice(0, 1)),
     [showAllLocationEvidenceBuckets, sortedLocationEvidence]
   );
+
+  const effectiveLocationEvidence = useMemo(() => {
+    const appointmentDestinationLatitude = selectedAppointment?.destination_latitude ?? null;
+    const appointmentDestinationLongitude = selectedAppointment?.destination_longitude ?? null;
+
+    return visibleLocationEvidence.map((snapshot) => {
+      const destinationLatitude = snapshot.destination.latitude ?? appointmentDestinationLatitude;
+      const destinationLongitude = snapshot.destination.longitude ?? appointmentDestinationLongitude;
+
+      const effectivePatientLatitude =
+        snapshot.patient.latitude ?? (isDestinationMode ? destinationLatitude : null);
+      const effectivePatientLongitude =
+        snapshot.patient.longitude ?? (isDestinationMode ? destinationLongitude : null);
+
+      let effectiveDistanceMeters = snapshot.distanceMeters;
+      if (
+        effectiveDistanceMeters === null &&
+        isDestinationMode &&
+        snapshot.provider.latitude !== null &&
+        snapshot.provider.longitude !== null &&
+        destinationLatitude !== null &&
+        destinationLongitude !== null
+      ) {
+        effectiveDistanceMeters = calculateDistanceMeters(
+          snapshot.provider.latitude,
+          snapshot.provider.longitude,
+          destinationLatitude,
+          destinationLongitude
+        );
+      }
+
+      return {
+        ...snapshot,
+        patient: {
+          ...snapshot.patient,
+          latitude: effectivePatientLatitude,
+          longitude: effectivePatientLongitude,
+        },
+        destination: {
+          latitude: destinationLatitude,
+          longitude: destinationLongitude,
+        },
+        distanceMeters: effectiveDistanceMeters,
+      };
+    });
+  }, [visibleLocationEvidence, selectedAppointment, isDestinationMode]);
 
   useEffect(() => {
     const fetchAppointments = async () => {
@@ -671,7 +738,7 @@ export const AppointmentsPage: React.FC = () => {
                       <>
                         <Suspense fallback={<p className="mt-3 text-sm text-slate-500">Loading map...</p>}>
                           <LocationEvidenceMap
-                            snapshots={visibleLocationEvidence}
+                            snapshots={effectiveLocationEvidence}
                             showPatient={showPatientOnMap}
                             showProvider={showProviderOnMap}
                             showPaths={isDestinationMode ? false : showPathsOnMap}
@@ -702,7 +769,7 @@ export const AppointmentsPage: React.FC = () => {
                               </div>
                             )}
 
-                            {visibleLocationEvidence.map((snapshot, index) => {
+                            {effectiveLocationEvidence.map((snapshot, index) => {
                               const likelyArrived =
                                 snapshot.distanceMeters !== null &&
                                 snapshot.distanceMeters < LOCATION_ARRIVAL_THRESHOLD_METERS;

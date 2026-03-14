@@ -149,6 +149,8 @@ export interface Appointment {
   scheduled_date: string;
   scheduled_time?: string;
   location?: string;
+  destination_latitude?: number | null;
+  destination_longitude?: number | null;
   status: 'Requested' | 'Scheduled' | 'Completed' | 'Cancelled';
   duration: 'single' | 'daily';
   number_of_days?: number;
