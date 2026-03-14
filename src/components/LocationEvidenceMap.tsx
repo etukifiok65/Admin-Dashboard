@@ -74,21 +74,19 @@ export const LocationEvidenceMap: React.FC<LocationEvidenceMapProps> = ({
   const isDestinationMode = verificationMode === 'destination_address';
 
   const patientPoints = useMemo<MapPoint[]>(() =>
-    isDestinationMode
-      ? []
-      : orderedSnapshots
-          .filter((snapshot) => snapshot.patient.latitude !== null && snapshot.patient.longitude !== null)
-          .map((snapshot, index) => ({
-            key: `patient-${snapshot.timeBucket}-${index}`,
-            role: 'patient',
-            position: [snapshot.patient.latitude as number, snapshot.patient.longitude as number],
-            timeBucket: snapshot.timeBucket,
-            capturedAt: snapshot.patient.capturedAt,
-            accuracyMeters: snapshot.patient.accuracyMeters,
-            distanceMeters: snapshot.distanceMeters,
-            hasBothPoints: snapshot.hasBothPoints,
-          })),
-    [orderedSnapshots, isDestinationMode]
+    orderedSnapshots
+      .filter((snapshot) => snapshot.patient.latitude !== null && snapshot.patient.longitude !== null)
+      .map((snapshot, index) => ({
+        key: `patient-${snapshot.timeBucket}-${index}`,
+        role: 'patient',
+        position: [snapshot.patient.latitude as number, snapshot.patient.longitude as number],
+        timeBucket: snapshot.timeBucket,
+        capturedAt: snapshot.patient.capturedAt,
+        accuracyMeters: snapshot.patient.accuracyMeters,
+        distanceMeters: snapshot.distanceMeters,
+        hasBothPoints: snapshot.hasBothPoints,
+      })),
+    [orderedSnapshots]
   );
 
   const providerPoints = useMemo<MapPoint[]>(() =>

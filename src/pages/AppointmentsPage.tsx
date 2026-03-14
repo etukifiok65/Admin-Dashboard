@@ -624,17 +624,15 @@ export const AppointmentsPage: React.FC = () => {
                               <option value={15}>15 min</option>
                             </select>
 
-                            {!isDestinationMode && (
-                              <label className="inline-flex items-center gap-1 text-xs text-slate-700">
-                                <input
-                                  type="checkbox"
-                                  checked={showPatientOnMap}
-                                  onChange={(event) => setShowPatientOnMap(event.target.checked)}
-                                  className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
-                                />
-                                Show patient
-                              </label>
-                            )}
+                            <label className="inline-flex items-center gap-1 text-xs text-slate-700">
+                              <input
+                                type="checkbox"
+                                checked={showPatientOnMap}
+                                onChange={(event) => setShowPatientOnMap(event.target.checked)}
+                                className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
+                              />
+                              Show patient
+                            </label>
 
                             <label className="inline-flex items-center gap-1 text-xs text-slate-700">
                               <input
@@ -667,7 +665,7 @@ export const AppointmentsPage: React.FC = () => {
                         <Suspense fallback={<p className="mt-3 text-sm text-slate-500">Loading map...</p>}>
                           <LocationEvidenceMap
                             snapshots={visibleLocationEvidence}
-                            showPatient={isDestinationMode ? false : showPatientOnMap}
+                            showPatient={showPatientOnMap}
                             showProvider={showProviderOnMap}
                             showPaths={isDestinationMode ? false : showPathsOnMap}
                             loading={isLocationEvidenceLoading}
@@ -720,9 +718,11 @@ export const AppointmentsPage: React.FC = () => {
                                   </div>
 
                                   <div className={`mt-3 grid gap-3 ${isDestinationMode ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
-                                    {!isDestinationMode && (
+                                    {(snapshot.patient.latitude !== null || snapshot.patient.longitude !== null) && (
                                       <div>
-                                        <p className="text-xs font-semibold text-slate-600">Patient point</p>
+                                        <p className="text-xs font-semibold text-slate-600">
+                                          {isDestinationMode ? 'Patient point (booking location)' : 'Patient point'}
+                                        </p>
                                         <p className="mt-1 text-sm text-slate-700">
                                           Lat/Lng: {formatCoordinate(snapshot.patient.latitude)}, {formatCoordinate(snapshot.patient.longitude)}
                                         </p>
