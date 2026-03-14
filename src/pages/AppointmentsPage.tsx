@@ -124,6 +124,9 @@ export const AppointmentsPage: React.FC = () => {
         snapshot.patient.longitude ?? (isDestinationMode ? destinationLongitude : null);
 
       let effectiveDistanceMeters = snapshot.distanceMeters;
+      let distanceSource: 'snapshot' | 'computed' | 'unavailable' =
+        snapshot.distanceMeters !== null ? 'snapshot' : 'unavailable';
+
       if (
         effectiveDistanceMeters === null &&
         isDestinationMode &&
@@ -138,6 +141,7 @@ export const AppointmentsPage: React.FC = () => {
           destinationLatitude,
           destinationLongitude
         );
+        distanceSource = 'computed';
       }
 
       return {
@@ -152,6 +156,7 @@ export const AppointmentsPage: React.FC = () => {
           longitude: destinationLongitude,
         },
         distanceMeters: effectiveDistanceMeters,
+        distanceSource,
       };
     });
   }, [visibleLocationEvidence, selectedAppointment, isDestinationMode]);
@@ -826,6 +831,14 @@ export const AppointmentsPage: React.FC = () => {
                                   <p className="mt-3 text-sm text-slate-700">
                                     {isDestinationMode ? 'Provider-to-destination distance' : 'Patient-provider distance'}:{' '}
                                     {snapshot.distanceMeters !== null ? `${snapshot.distanceMeters.toFixed(2)} m` : 'N/A'}
+                                  </p>
+                                  <p className="mt-1 text-xs text-slate-500">
+                                    Source:{' '}
+                                    {snapshot.distanceSource === 'snapshot'
+                                      ? 'RPC snapshot'
+                                      : snapshot.distanceSource === 'computed'
+                                        ? 'Computed fallback (provider + destination coords)'
+                                        : 'Unavailable'}
                                   </p>
                                 </div>
                               );
