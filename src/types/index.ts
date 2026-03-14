@@ -202,6 +202,14 @@ export interface AppointmentLocationDisputeSnapshotRow {
   patient_longitude: number | null;
   patient_accuracy_meters: number | null;
   patient_captured_at: string | null;
+  booking_patient_latitude?: number | null;
+  booking_patient_longitude?: number | null;
+  booking_patient_accuracy_meters?: number | null;
+  booking_patient_captured_at?: string | null;
+  patient_booking_latitude?: number | null;
+  patient_booking_longitude?: number | null;
+  patient_booking_accuracy_meters?: number | null;
+  patient_booking_captured_at?: string | null;
   provider_latitude: number | null;
   provider_longitude: number | null;
   provider_accuracy_meters: number | null;

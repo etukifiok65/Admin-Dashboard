@@ -178,6 +178,13 @@ export const AppointmentsPage: React.FC = () => {
     fetchLocationEvidence();
   }, [selectedAppointmentId, locationEvidenceBucketMinutes]);
 
+  useEffect(() => {
+    // Reset map toggles on appointment change to avoid carrying over hidden layers.
+    setShowPatientOnMap(true);
+    setShowProviderOnMap(true);
+    setShowPathsOnMap(true);
+  }, [selectedAppointmentId]);
+
   const handleUpdateStatus = async (status: 'Requested' | 'Scheduled' | 'Completed' | 'Cancelled') => {
     if (!selectedAppointmentId) return;
 

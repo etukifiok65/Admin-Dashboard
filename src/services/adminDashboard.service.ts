@@ -518,14 +518,25 @@ class AdminDashboardService {
       };
 
       return (data as AppointmentLocationDisputeSnapshotRow[]).map((snapshot) => {
-        const patientLatitude = toNullableNumber(snapshot.patient_latitude);
-        const patientLongitude = toNullableNumber(snapshot.patient_longitude);
+        const sourcePatientLatitude = toNullableNumber(
+          snapshot.patient_latitude ?? snapshot.booking_patient_latitude ?? snapshot.patient_booking_latitude
+        );
+        const sourcePatientLongitude = toNullableNumber(
+          snapshot.patient_longitude ?? snapshot.booking_patient_longitude ?? snapshot.patient_booking_longitude
+        );
+        const patientLatitude = sourcePatientLatitude ?? toNullableNumber(snapshot.destination_latitude);
+        const patientLongitude = sourcePatientLongitude ?? toNullableNumber(snapshot.destination_longitude);
+        const patientAccuracyMeters = toNullableNumber(
+          snapshot.patient_accuracy_meters ?? snapshot.booking_patient_accuracy_meters ?? snapshot.patient_booking_accuracy_meters
+        );
+        const patientCapturedAt =
+          snapshot.patient_captured_at ?? snapshot.booking_patient_captured_at ?? snapshot.patient_booking_captured_at ?? null;
         const providerLatitude = toNullableNumber(snapshot.provider_latitude);
         const providerLongitude = toNullableNumber(snapshot.provider_longitude);
 
         const hasBothPoints =
-          patientLatitude !== null &&
-          patientLongitude !== null &&
+          sourcePatientLatitude !== null &&
+          sourcePatientLongitude !== null &&
           providerLatitude !== null &&
           providerLongitude !== null;
 
@@ -534,8 +545,8 @@ class AdminDashboardService {
           patient: {
             latitude: patientLatitude,
             longitude: patientLongitude,
-            accuracyMeters: toNullableNumber(snapshot.patient_accuracy_meters),
-            capturedAt: snapshot.patient_captured_at || null,
+            accuracyMeters: patientAccuracyMeters,
+            capturedAt: patientCapturedAt,
           },
           provider: {
             latitude: providerLatitude,
