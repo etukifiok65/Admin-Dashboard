@@ -171,6 +171,7 @@ export interface AppointmentDetails extends Appointment {
   provider_name?: string;
   provider_specialty?: string;
   provider_phone?: string;
+  verification_mode?: string;
   // Medical information
   medical_info?: {
     current_symptoms?: string;
@@ -205,6 +206,8 @@ export interface AppointmentLocationDisputeSnapshotRow {
   provider_longitude: number | null;
   provider_accuracy_meters: number | null;
   provider_captured_at: string | null;
+  destination_latitude?: number | null;
+  destination_longitude?: number | null;
   distance_meters: number | null;
 }
 
@@ -219,6 +222,10 @@ export interface AppointmentLocationDisputeSnapshot {
   timeBucket: string;
   patient: AppointmentLocationPointEvidence;
   provider: AppointmentLocationPointEvidence;
+  destination: {
+    latitude: number | null;
+    longitude: number | null;
+  };
   distanceMeters: number | null;
   hasBothPoints: boolean;
 }

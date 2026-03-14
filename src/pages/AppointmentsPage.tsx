@@ -6,7 +6,7 @@ import ConfirmModal from '@components/ConfirmModal';
 import { format } from 'date-fns';
 
 const ITEMS_PER_PAGE = 10;
-const LOCATION_HINT_DISTANCE_THRESHOLD_METERS = 50;
+const LOCATION_ARRIVAL_THRESHOLD_METERS = 50;
 const LocationEvidenceMap = lazy(() => import('@components/LocationEvidenceMap'));
 
 const statusLabelMap: Record<string, string> = {
@@ -75,6 +75,9 @@ export const AppointmentsPage: React.FC = () => {
   const [showPatientOnMap, setShowPatientOnMap] = useState(true);
   const [showProviderOnMap, setShowProviderOnMap] = useState(true);
   const [showPathsOnMap, setShowPathsOnMap] = useState(true);
+  // Evidence mode branching
+  const verificationMode = selectedAppointment?.verification_mode || 'device_pair';
+  const isDestinationMode = verificationMode === 'destination_address';
 
   const sortedLocationEvidence = useMemo(
     () => [...locationEvidence].sort((a, b) => new Date(b.timeBucket).getTime() - new Date(a.timeBucket).getTime()),
@@ -354,6 +357,7 @@ export const AppointmentsPage: React.FC = () => {
                   />
                 </div>
                 <select
+                  title="Filter appointments by status"
                   value={statusFilter}
                   onChange={(e) => {
                     setStatusFilter(e.target.value as typeof statusFilter);
@@ -368,6 +372,7 @@ export const AppointmentsPage: React.FC = () => {
                   <option value="Cancelled">Cancelled</option>
                 </select>
                 <select
+                  title="Sort appointments"
                   value={sortOrder}
                   onChange={(e) => setSortOrder(e.target.value as typeof sortOrder)}
                   className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-600 focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
@@ -583,7 +588,14 @@ export const AppointmentsPage: React.FC = () => {
 
                   <div className="border-t border-slate-200 pt-4">
                     <div className="flex flex-wrap items-center justify-between gap-3">
-                      <h3 className="text-sm font-semibold text-slate-700">Location Evidence</h3>
+                      <div>
+                        <h3 className="text-sm font-semibold text-slate-700">Location Evidence</h3>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          {isDestinationMode
+                            ? 'Provider Arrival Evidence (Destination-Based)'
+                            : 'Patient-Provider Proximity'}
+                        </p>
+                      </div>
                       <div className="flex flex-wrap items-center gap-3">
                         <button
                           type="button"
@@ -595,52 +607,56 @@ export const AppointmentsPage: React.FC = () => {
 
                         {isLocationEvidenceExpanded && (
                           <>
-                        <label htmlFor="location-evidence-bucket" className="text-xs font-semibold text-slate-600">
-                          Bucket
-                        </label>
-                        <select
-                          id="location-evidence-bucket"
-                          value={locationEvidenceBucketMinutes}
-                          onChange={(event) => {
-                            setLocationEvidenceBucketMinutes(Number(event.target.value) as 5 | 10 | 15);
-                            setShowAllLocationEvidenceBuckets(false);
-                          }}
-                          className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
-                        >
-                          <option value={5}>5 min</option>
-                          <option value={10}>10 min</option>
-                          <option value={15}>15 min</option>
-                        </select>
+                            <label htmlFor="location-evidence-bucket" className="text-xs font-semibold text-slate-600">
+                              Bucket
+                            </label>
+                            <select
+                              id="location-evidence-bucket"
+                              value={locationEvidenceBucketMinutes}
+                              onChange={(event) => {
+                                setLocationEvidenceBucketMinutes(Number(event.target.value) as 5 | 10 | 15);
+                                setShowAllLocationEvidenceBuckets(false);
+                              }}
+                              className="rounded-lg border border-slate-200 bg-white px-2 py-1 text-xs text-slate-700 focus:border-brand-200 focus:outline-none focus:ring-2 focus:ring-brand-100"
+                            >
+                              <option value={5}>5 min</option>
+                              <option value={10}>10 min</option>
+                              <option value={15}>15 min</option>
+                            </select>
 
-                        <label className="inline-flex items-center gap-1 text-xs text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={showPatientOnMap}
-                            onChange={(event) => setShowPatientOnMap(event.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
-                          />
-                          Show patient
-                        </label>
+                            {!isDestinationMode && (
+                              <label className="inline-flex items-center gap-1 text-xs text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={showPatientOnMap}
+                                  onChange={(event) => setShowPatientOnMap(event.target.checked)}
+                                  className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
+                                />
+                                Show patient
+                              </label>
+                            )}
 
-                        <label className="inline-flex items-center gap-1 text-xs text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={showProviderOnMap}
-                            onChange={(event) => setShowProviderOnMap(event.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
-                          />
-                          Show provider
-                        </label>
+                            <label className="inline-flex items-center gap-1 text-xs text-slate-700">
+                              <input
+                                type="checkbox"
+                                checked={showProviderOnMap}
+                                onChange={(event) => setShowProviderOnMap(event.target.checked)}
+                                className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
+                              />
+                              Show provider
+                            </label>
 
-                        <label className="inline-flex items-center gap-1 text-xs text-slate-700">
-                          <input
-                            type="checkbox"
-                            checked={showPathsOnMap}
-                            onChange={(event) => setShowPathsOnMap(event.target.checked)}
-                            className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
-                          />
-                          Show paths
-                        </label>
+                            {!isDestinationMode && (
+                              <label className="inline-flex items-center gap-1 text-xs text-slate-700">
+                                <input
+                                  type="checkbox"
+                                  checked={showPathsOnMap}
+                                  onChange={(event) => setShowPathsOnMap(event.target.checked)}
+                                  className="h-3.5 w-3.5 rounded border-slate-300 text-brand-600 focus:ring-brand-200"
+                                />
+                                Show paths
+                              </label>
+                            )}
                           </>
                         )}
                       </div>
@@ -651,11 +667,13 @@ export const AppointmentsPage: React.FC = () => {
                         <Suspense fallback={<p className="mt-3 text-sm text-slate-500">Loading map...</p>}>
                           <LocationEvidenceMap
                             snapshots={visibleLocationEvidence}
-                            showPatient={showPatientOnMap}
+                            showPatient={isDestinationMode ? false : showPatientOnMap}
                             showProvider={showProviderOnMap}
-                            showPaths={showPathsOnMap}
+                            showPaths={isDestinationMode ? false : showPathsOnMap}
                             loading={isLocationEvidenceLoading}
                             error={locationEvidenceError}
+                            verificationMode={verificationMode}
+                            destinationAddress={isDestinationMode ? selectedAppointment?.location : undefined}
                           />
                         </Suspense>
 
@@ -681,9 +699,8 @@ export const AppointmentsPage: React.FC = () => {
 
                             {visibleLocationEvidence.map((snapshot, index) => {
                               const likelyArrived =
-                                snapshot.hasBothPoints &&
                                 snapshot.distanceMeters !== null &&
-                                snapshot.distanceMeters < LOCATION_HINT_DISTANCE_THRESHOLD_METERS;
+                                snapshot.distanceMeters < LOCATION_ARRIVAL_THRESHOLD_METERS;
 
                               return (
                                 <div key={`${snapshot.timeBucket}-${index}`} className="rounded-lg border border-slate-200 bg-slate-50/60 p-3">
@@ -702,19 +719,21 @@ export const AppointmentsPage: React.FC = () => {
                                     </span>
                                   </div>
 
-                                  <div className="mt-3 grid gap-3 md:grid-cols-2">
-                                    <div>
-                                      <p className="text-xs font-semibold text-slate-600">Patient point</p>
-                                      <p className="mt-1 text-sm text-slate-700">
-                                        Lat/Lng: {formatCoordinate(snapshot.patient.latitude)}, {formatCoordinate(snapshot.patient.longitude)}
-                                      </p>
-                                      <p className="text-xs text-slate-500">
-                                        Accuracy: {snapshot.patient.accuracyMeters !== null ? `${snapshot.patient.accuracyMeters.toFixed(2)} m` : 'N/A'}
-                                      </p>
-                                      <p className="text-xs text-slate-500">
-                                        Captured: {formatEvidenceDateTime(snapshot.patient.capturedAt)}
-                                      </p>
-                                    </div>
+                                  <div className={`mt-3 grid gap-3 ${isDestinationMode ? 'md:grid-cols-1' : 'md:grid-cols-2'}`}>
+                                    {!isDestinationMode && (
+                                      <div>
+                                        <p className="text-xs font-semibold text-slate-600">Patient point</p>
+                                        <p className="mt-1 text-sm text-slate-700">
+                                          Lat/Lng: {formatCoordinate(snapshot.patient.latitude)}, {formatCoordinate(snapshot.patient.longitude)}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                          Accuracy: {snapshot.patient.accuracyMeters !== null ? `${snapshot.patient.accuracyMeters.toFixed(2)} m` : 'N/A'}
+                                        </p>
+                                        <p className="text-xs text-slate-500">
+                                          Captured: {formatEvidenceDateTime(snapshot.patient.capturedAt)}
+                                        </p>
+                                      </div>
+                                    )}
 
                                     <div>
                                       <p className="text-xs font-semibold text-slate-600">Provider point</p>
@@ -731,7 +750,8 @@ export const AppointmentsPage: React.FC = () => {
                                   </div>
 
                                   <p className="mt-3 text-sm text-slate-700">
-                                    Distance: {snapshot.distanceMeters !== null ? `${snapshot.distanceMeters.toFixed(2)} m` : 'N/A'}
+                                    {isDestinationMode ? 'Provider-to-destination distance' : 'Patient-provider distance'}:{' '}
+                                    {snapshot.distanceMeters !== null ? `${snapshot.distanceMeters.toFixed(2)} m` : 'N/A'}
                                   </p>
                                 </div>
                               );

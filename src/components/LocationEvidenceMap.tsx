@@ -9,6 +9,8 @@ interface LocationEvidenceMapProps {
   showPaths: boolean;
   loading: boolean;
   error: string | null;
+  verificationMode?: string;
+  destinationAddress?: string;
 }
 
 type Role = 'patient' | 'provider';
@@ -22,6 +24,10 @@ type MapPoint = {
   accuracyMeters: number | null;
   distanceMeters: number | null;
   hasBothPoints: boolean;
+};
+
+type DestinationPoint = {
+  position: [number, number];
 };
 
 const formatDateTime = (value: string | null): string => {
@@ -59,34 +65,47 @@ export const LocationEvidenceMap: React.FC<LocationEvidenceMapProps> = ({
   showPaths,
   loading,
   error,
+  verificationMode,
+  destinationAddress,
 }) => {
   const orderedSnapshots = useMemo(() => sortSnapshotsByTime(snapshots), [snapshots]);
 
-  const patientPoints = useMemo<MapPoint[]>(() => orderedSnapshots
-    .filter((snapshot) => snapshot.patient.latitude !== null && snapshot.patient.longitude !== null)
-    .map((snapshot, index) => ({
-      key: `patient-${snapshot.timeBucket}-${index}`,
-      role: 'patient',
-      position: [snapshot.patient.latitude as number, snapshot.patient.longitude as number],
-      timeBucket: snapshot.timeBucket,
-      capturedAt: snapshot.patient.capturedAt,
-      accuracyMeters: snapshot.patient.accuracyMeters,
-      distanceMeters: snapshot.distanceMeters,
-      hasBothPoints: snapshot.hasBothPoints,
-    })), [orderedSnapshots]);
+  // Branch evidence logic for destination_address mode
+  const isDestinationMode = verificationMode === 'destination_address';
 
-  const providerPoints = useMemo<MapPoint[]>(() => orderedSnapshots
-    .filter((snapshot) => snapshot.provider.latitude !== null && snapshot.provider.longitude !== null)
-    .map((snapshot, index) => ({
-      key: `provider-${snapshot.timeBucket}-${index}`,
-      role: 'provider',
-      position: [snapshot.provider.latitude as number, snapshot.provider.longitude as number],
-      timeBucket: snapshot.timeBucket,
-      capturedAt: snapshot.provider.capturedAt,
-      accuracyMeters: snapshot.provider.accuracyMeters,
-      distanceMeters: snapshot.distanceMeters,
-      hasBothPoints: snapshot.hasBothPoints,
-    })), [orderedSnapshots]);
+  const patientPoints = useMemo<MapPoint[]>(() =>
+    isDestinationMode
+      ? []
+      : orderedSnapshots
+          .filter((snapshot) => snapshot.patient.latitude !== null && snapshot.patient.longitude !== null)
+          .map((snapshot, index) => ({
+            key: `patient-${snapshot.timeBucket}-${index}`,
+            role: 'patient',
+            position: [snapshot.patient.latitude as number, snapshot.patient.longitude as number],
+            timeBucket: snapshot.timeBucket,
+            capturedAt: snapshot.patient.capturedAt,
+            accuracyMeters: snapshot.patient.accuracyMeters,
+            distanceMeters: snapshot.distanceMeters,
+            hasBothPoints: snapshot.hasBothPoints,
+          })),
+    [orderedSnapshots, isDestinationMode]
+  );
+
+  const providerPoints = useMemo<MapPoint[]>(() =>
+    orderedSnapshots
+      .filter((snapshot) => snapshot.provider.latitude !== null && snapshot.provider.longitude !== null)
+      .map((snapshot, index) => ({
+        key: `provider-${snapshot.timeBucket}-${index}`,
+        role: 'provider',
+        position: [snapshot.provider.latitude as number, snapshot.provider.longitude as number],
+        timeBucket: snapshot.timeBucket,
+        capturedAt: snapshot.provider.capturedAt,
+        accuracyMeters: snapshot.provider.accuracyMeters,
+        distanceMeters: isDestinationMode ? snapshot.distanceMeters : snapshot.distanceMeters,
+        hasBothPoints: snapshot.hasBothPoints,
+      })),
+    [orderedSnapshots, isDestinationMode]
+  );
 
   const visiblePoints = useMemo(() => {
     const points: MapPoint[] = [];
@@ -94,6 +113,17 @@ export const LocationEvidenceMap: React.FC<LocationEvidenceMapProps> = ({
     if (showProvider) points.push(...providerPoints);
     return points;
   }, [patientPoints, providerPoints, showPatient, showProvider]);
+
+  const destinationPoint = useMemo<DestinationPoint | null>(() => {
+    if (!isDestinationMode) return null;
+    const withDestination = orderedSnapshots.find(
+      (snapshot) => snapshot.destination.latitude !== null && snapshot.destination.longitude !== null
+    );
+    if (!withDestination) return null;
+    return {
+      position: [withDestination.destination.latitude as number, withDestination.destination.longitude as number],
+    };
+  }, [orderedSnapshots, isDestinationMode]);
 
   if (loading) {
     return <p className="mt-3 text-sm text-slate-500">Loading location evidence...</p>;
@@ -103,17 +133,26 @@ export const LocationEvidenceMap: React.FC<LocationEvidenceMapProps> = ({
     return <p className="mt-3 text-sm text-red-600">{error}</p>;
   }
 
-  if (visiblePoints.length === 0) {
+  if (visiblePoints.length === 0 && !destinationPoint) {
     return <p className="mt-3 text-sm text-slate-500">No map data available</p>;
   }
 
   const patientPath = patientPoints.map((point) => point.position);
   const providerPath = providerPoints.map((point) => point.position);
+  const initialCenter = destinationPoint
+    ? destinationPoint.position
+    : visiblePoints[0].position;
 
   return (
-    <div className="mt-3 h-80 overflow-hidden rounded-lg border border-slate-200">
+    <div className="mt-3">
+      {isDestinationMode && destinationAddress && (
+        <p className="mb-2 text-xs text-slate-500">
+          Destination: {destinationAddress}
+        </p>
+      )}
+      <div className="h-80 overflow-hidden rounded-lg border border-slate-200">
       <MapContainer
-        center={visiblePoints[0].position}
+        center={initialCenter}
         zoom={13}
         className="h-full w-full"
         scrollWheelZoom
@@ -123,7 +162,12 @@ export const LocationEvidenceMap: React.FC<LocationEvidenceMapProps> = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        <AutoFitBounds points={visiblePoints.map((point) => point.position)} />
+        <AutoFitBounds
+          points={[
+            ...visiblePoints.map((point) => point.position),
+            ...(destinationPoint ? [destinationPoint.position] : []),
+          ]}
+        />
 
         {showPaths && showPatient && patientPath.length > 1 && (
           <Polyline positions={patientPath} pathOptions={{ color: '#2563eb', weight: 3, opacity: 0.7 }} />
@@ -146,9 +190,7 @@ export const LocationEvidenceMap: React.FC<LocationEvidenceMapProps> = ({
                 <p>Time bucket: {formatDateTime(point.timeBucket)}</p>
                 <p>Captured: {formatDateTime(point.capturedAt)}</p>
                 <p>Accuracy: {point.accuracyMeters !== null ? `${point.accuracyMeters.toFixed(2)} m` : 'N/A'}</p>
-                {point.hasBothPoints && point.distanceMeters !== null && (
-                  <p>Distance: {point.distanceMeters.toFixed(2)} m</p>
-                )}
+                {point.distanceMeters !== null && <p>Patient-provider distance: {point.distanceMeters.toFixed(2)} m</p>}
               </div>
             </Popup>
           </CircleMarker>
@@ -167,14 +209,32 @@ export const LocationEvidenceMap: React.FC<LocationEvidenceMapProps> = ({
                 <p>Time bucket: {formatDateTime(point.timeBucket)}</p>
                 <p>Captured: {formatDateTime(point.capturedAt)}</p>
                 <p>Accuracy: {point.accuracyMeters !== null ? `${point.accuracyMeters.toFixed(2)} m` : 'N/A'}</p>
-                {point.hasBothPoints && point.distanceMeters !== null && (
-                  <p>Distance: {point.distanceMeters.toFixed(2)} m</p>
+                {point.distanceMeters !== null && (
+                  <p>
+                    {isDestinationMode ? 'Provider-to-destination distance' : 'Patient-provider distance'}: {point.distanceMeters.toFixed(2)} m
+                  </p>
                 )}
               </div>
             </Popup>
           </CircleMarker>
         ))}
+
+        {isDestinationMode && destinationPoint && (
+          <CircleMarker
+            center={destinationPoint.position}
+            radius={8}
+            pathOptions={{ color: '#b45309', fillColor: '#f59e0b', fillOpacity: 0.95 }}
+          >
+            <Popup>
+              <div className="space-y-1 text-xs text-slate-700">
+                <p className="font-semibold text-amber-700">Destination</p>
+                {destinationAddress && <p>{destinationAddress}</p>}
+              </div>
+            </Popup>
+          </CircleMarker>
+        )}
       </MapContainer>
+      </div>
     </div>
   );
 };

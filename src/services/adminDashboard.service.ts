@@ -543,6 +543,10 @@ class AdminDashboardService {
             accuracyMeters: toNullableNumber(snapshot.provider_accuracy_meters),
             capturedAt: snapshot.provider_captured_at || null,
           },
+          destination: {
+            latitude: toNullableNumber(snapshot.destination_latitude),
+            longitude: toNullableNumber(snapshot.destination_longitude),
+          },
           distanceMeters: toNullableNumber(snapshot.distance_meters),
           hasBothPoints,
         };
